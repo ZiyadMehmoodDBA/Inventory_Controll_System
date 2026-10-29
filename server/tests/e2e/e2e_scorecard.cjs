@@ -1,0 +1,41 @@
+const path = require('path');
+// Performance scorecard in the Inventory dashboard: eleven measures, how each is measured, setting targets with the suggested value, statuses.
+module.exports = async (ctx) => { try { await body(ctx); } catch (e) { await ctx.page.screenshot({ path: path.join(ctx.SHOTS, 'e2e-scorecard-fail.png') }); throw e; } };
+const body = async ({ page, check, api, SHOTS, label }) => {
+  await page.locator('button[title^="Exceptions that need a decision"]').click();
+  await page.locator('h3:text-is("Inventory Dashboard & Reports")').waitFor({ timeout: 10000 });
+  await page.getByRole('button', { name: 'Performance' }).click();
+  await page.locator('[data-measure]').first().waitFor({ timeout: 10000 });
+  check('eleven measures are shown', (await page.locator('[data-measure]').count()) === 11);
+  const val = async id => (await page.locator(`[data-measure="${id}"] [data-value]`).innerText()).trim();
+  check('a sold-out item makes the stockout rate non-empty', /%$/.test(await val('stockout_rate')), await val('stockout_rate'));
+  check('carrying cost asks for a rate instead of inventing one', /Rate not set/.test(await page.locator('[data-measure="carrying_cost"]').innerText()) && (await val('carrying_cost')) === '—');
+  check('no targets yet', /No targets set yet/.test(await page.locator('body').innerText()));
+  await page.locator('[data-measure="inventory_turnover"] button:has-text("How it is measured")').click();
+  check('the basis of a measure can be read', /average inventory value/.test(await page.locator('[data-measure="inventory_turnover"]').innerText()));
+  await page.screenshot({ path: path.join(SHOTS, `e2e-${label}-scorecard.png`) });
+
+  await page.getByRole('button', { name: 'Set targets' }).click();
+  await page.getByLabel('Annual carrying-cost rate').fill('20');
+  const sug = page.locator('label:has-text("Stockout rate") button:has-text("Use")');
+  const hadSuggestion = await sug.count();
+  if (hadSuggestion) await sug.click();
+  await page.getByLabel('Target for Order fulfillment accuracy').fill('99');
+  await page.getByRole('button', { name: 'Save targets' }).click();
+  await page.locator('text=/on target|to watch|off target/').first().waitFor({ timeout: 10000 });
+  const cfg = (await api('GET', '/inventory/insights/kpis')).body;
+  const get = id => cfg.measures.find(m => m.id === id);
+  check('targets were saved on the server', get('order_fulfillment').target === 99 && cfg.carrying_cost_rate === 20, JSON.stringify(cfg.carrying_cost_rate));
+  check('the suggested target was applied', !hadSuggestion || get('stockout_rate').target !== null);
+  check('carrying cost is now computed', (await val('carrying_cost')) !== '—' || get('carrying_cost').value === 0, await val('carrying_cost'));
+  check('a measure with a target shows it', /Target ≥ 99%/.test(await page.locator('[data-measure="order_fulfillment"]').innerText()));
+  check('status chip reflects the target', /(On target|Watch|Off target)/.test(await page.locator('[data-measure="order_fulfillment"]').innerText()));
+  const bad = await api('PUT', '/inventory/insights/kpis/targets', { targets: { inventory_accuracy: 500 } });
+  check('an impossible target is rejected by the backend', bad.status === 400);
+  await page.getByRole('button', { name: 'Set targets' }).click();
+  await page.getByLabel('Target for Inventory accuracy').fill('150');
+  await page.getByRole('button', { name: 'Save targets' }).click();
+  await page.locator('[role="alert"]').first().waitFor({ timeout: 8000 });
+  check('the screen shows the backend refusal', /cannot exceed 100/.test(await page.locator('[role="alert"]').first().innerText()));
+  await page.screenshot({ path: path.join(SHOTS, `e2e-${label}-scorecard-targets.png`) });
+};

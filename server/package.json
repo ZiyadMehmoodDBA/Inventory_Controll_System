@@ -1,0 +1,30 @@
+{
+  "name": "tunegen-bics-server",
+  "version": "1.0.0",
+  "description": "TuneGEN Billing and Inventory Control System API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node --test utils/stock.test.js reporting/reporting.test.js",
+    "test:integration": "node tests/run-integration.cjs",
+    "backup": "node scripts/backup.js backup",
+    "backup:drill": "node scripts/backup.js drill"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "axios": "^1.15.2",
+    "bcryptjs": "^3.0.3",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.4.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mssql": "^10.0.1",
+    "node-cron": "^4.2.1"
+  }
+}

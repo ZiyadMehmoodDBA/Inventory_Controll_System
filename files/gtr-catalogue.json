@@ -1,0 +1,1071 @@
+{
+  "categories": [
+    "Passenger Car Tyres",
+    "SUV/Crossovers Tyres",
+    "Light Truck Tyres",
+    "Truck & Bus/OTR Tyres",
+    "Tractor Tyres",
+    "Motorcycle/Rickshaw Tyres"
+  ],
+  "products": [
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Thunder Max",
+      "type": "Radial",
+      "description": "Asymmetric tyre designed for high performance on all surfaces",
+      "sizes": [
+        "195/65 R15",
+        "205/55 R16",
+        "215/50 R17"
+      ],
+      "speed_rating": [
+        "H",
+        "H",
+        "V"
+      ],
+      "load_index": [
+        "91",
+        "91",
+        "91"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Luxo Plus",
+      "type": "Radial",
+      "description": "Asymmetric design with multiple circumferential ribs",
+      "sizes": [
+        "215/55 R16",
+        "195/60 R16"
+      ],
+      "speed_rating": [
+        "H",
+        "H"
+      ],
+      "load_index": [
+        "93",
+        "89"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Falcon",
+      "type": "Radial",
+      "description": "New generation high performance tyre",
+      "sizes": [
+        "185/65 R15"
+      ],
+      "speed_rating": [
+        "H"
+      ],
+      "load_index": [
+        "88"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Trako Plus",
+      "type": "Radial",
+      "description": "Built for high performance and comfortable ride",
+      "sizes": [
+        "185/60 R15"
+      ],
+      "speed_rating": [
+        "H"
+      ],
+      "load_index": [
+        "84"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Performa",
+      "type": "Radial",
+      "description": "Latest tyre design provides comfort ride and better road grip",
+      "sizes": [
+        "175/65 R14"
+      ],
+      "speed_rating": [
+        "T"
+      ],
+      "load_index": [
+        "82"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Traker",
+      "type": "Radial",
+      "description": "Latest pattern tyre for local road conditions",
+      "sizes": [
+        "155/70 R12",
+        "165/70 R12"
+      ],
+      "speed_rating": [
+        "T",
+        "T"
+      ],
+      "load_index": [
+        "73",
+        "77"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Econo",
+      "type": "Radial",
+      "description": "Better fuel economy and ride comfort",
+      "sizes": [
+        "145/70 R12"
+      ],
+      "speed_rating": [
+        "T"
+      ],
+      "load_index": [
+        "69"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "BG Tempo Plus",
+      "type": "Radial",
+      "description": "Better road grip and smooth ride",
+      "sizes": [
+        "155/70 R12",
+        "165/70 R12"
+      ],
+      "speed_rating": [
+        "T",
+        "T"
+      ],
+      "load_index": [
+        "73",
+        "77"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "Euro Star",
+      "type": "Radial",
+      "description": "Comfortable ride and good grip",
+      "sizes": [
+        "175/65 R15",
+        "195/65 R15"
+      ],
+      "speed_rating": [
+        "T",
+        "H"
+      ],
+      "load_index": [
+        "84",
+        "91"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "Euro Kruze",
+      "type": "Radial",
+      "description": "Directional pattern tyre for excellent road grip",
+      "sizes": [
+        "165/65 R13",
+        "185/65 R14"
+      ],
+      "speed_rating": [
+        "T",
+        "T"
+      ],
+      "load_index": [
+        "77",
+        "86"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "Euro Tycoon",
+      "type": "Radial",
+      "description": "Latest tyre design for excellent road grip",
+      "sizes": [
+        "145/80 R13",
+        "175/70 R13",
+        "165/65 R14"
+      ],
+      "speed_rating": [
+        "T",
+        "T",
+        "T"
+      ],
+      "load_index": [
+        "75",
+        "82",
+        "79"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "Euro Glide",
+      "type": "Radial",
+      "description": "Latest directional pattern for comfortable drive",
+      "sizes": [
+        "185/70 R13"
+      ],
+      "speed_rating": [
+        "T"
+      ],
+      "load_index": [
+        "86"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "Euro Kompact",
+      "type": "Radial",
+      "description": "Non-directional tubeless radial — Suzuki Mehran, Alto, Daihatsu Cuore",
+      "sizes": [
+        "145/80 R12",
+        "155/70 R12",
+        "165/70 R12"
+      ],
+      "speed_rating": [
+        "T",
+        "T",
+        "T"
+      ],
+      "load_index": [
+        "74",
+        "73",
+        "77"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "Radial ST",
+      "type": "Radial",
+      "description": "Looks good and rides well in all weather conditions",
+      "sizes": [
+        "145/70 R12"
+      ],
+      "speed_rating": [
+        "T"
+      ],
+      "load_index": [
+        "69"
+      ]
+    },
+    {
+      "category": "Passenger Car Tyres",
+      "name": "XP 2000 II",
+      "type": "Radial",
+      "description": "Steel belted tubeless radial tyre",
+      "sizes": [
+        "155/80 R13",
+        "165/80 R13",
+        "175/70 R14"
+      ],
+      "speed_rating": [
+        "T",
+        "T",
+        "T"
+      ],
+      "load_index": [
+        "79",
+        "83",
+        "84"
+      ]
+    },
+    {
+      "category": "SUV/Crossovers Tyres",
+      "name": "BG Raptor",
+      "type": "Radial",
+      "description": "SUV tyre for powerful control and better road grip",
+      "sizes": [
+        "225/55 R18"
+      ],
+      "speed_rating": [
+        "H"
+      ],
+      "load_index": [
+        "98"
+      ]
+    },
+    {
+      "category": "SUV/Crossovers Tyres",
+      "name": "BG Max Sport",
+      "type": "Radial",
+      "description": "Rib pattern tyre for better steering control and grip",
+      "sizes": [
+        "215/60 R17"
+      ],
+      "speed_rating": [
+        "H"
+      ],
+      "load_index": [
+        "96"
+      ]
+    },
+    {
+      "category": "SUV/Crossovers Tyres",
+      "name": "BG Velotrak Plus",
+      "type": "Radial",
+      "description": "Asymmetric design SUV tyre, better grip and style",
+      "sizes": [
+        "265/60 R18"
+      ],
+      "speed_rating": [
+        "H"
+      ],
+      "load_index": [
+        "110"
+      ]
+    },
+    {
+      "category": "SUV/Crossovers Tyres",
+      "name": "BG Alro Grip",
+      "type": "Radial",
+      "description": "Symmetric design SUV tyre with driving comfort and road grip",
+      "sizes": [
+        "225/50 R18"
+      ],
+      "speed_rating": [
+        "V"
+      ],
+      "load_index": [
+        "95"
+      ]
+    },
+    {
+      "category": "SUV/Crossovers Tyres",
+      "name": "BG Power Terrain",
+      "type": "4x4 Radial",
+      "description": "Block type pattern, outstanding off-road traction",
+      "sizes": [
+        "205 R16C"
+      ],
+      "load_index": [
+        "110/108"
+      ]
+    },
+    {
+      "category": "SUV/Crossovers Tyres",
+      "name": "Super All Grip",
+      "type": "4x4 Radial",
+      "description": "Radial tubeless specifically for Land Rovers",
+      "sizes": [
+        "7.50 R16 C"
+      ],
+      "load_index": [
+        "116/114"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Power Jet Commercial (PJC)",
+      "type": "Bias",
+      "description": "Designed for vans and pickups",
+      "sizes": [
+        "4.50-12",
+        "6.50-14"
+      ],
+      "ply_rating": [
+        "8",
+        "10"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Chief (Light Truck)",
+      "type": "Bias",
+      "description": "Designed for vans and pickups",
+      "sizes": [
+        "4.50-12",
+        "6.50-14"
+      ],
+      "ply_rating": [
+        "8",
+        "10"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Power Rib",
+      "type": "Bias",
+      "description": "Rib pattern for better steering control and grip",
+      "sizes": [
+        "6.00-14"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Traction Rib (TR) — LT",
+      "type": "Bias",
+      "description": "Most popular rib pattern for all positions",
+      "sizes": [
+        "6.50-16",
+        "7.00-16"
+      ],
+      "ply_rating": [
+        "10/14",
+        "14"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Non-Directional (ND)",
+      "type": "Bias",
+      "description": "Lug pattern for all positions",
+      "sizes": [
+        "6.00-16"
+      ],
+      "ply_rating": [
+        "6/8"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "GLT II",
+      "type": "Bias",
+      "description": "Rib/Lug for conditions where extra traction needed",
+      "sizes": [
+        "7.50-16"
+      ],
+      "ply_rating": [
+        "8/14"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Load Star",
+      "type": "Bias",
+      "description": "Lug, multifunctional tread design",
+      "sizes": [
+        "5.00-12"
+      ],
+      "ply_rating": [
+        "12"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "BG Cargo",
+      "type": "Radial",
+      "description": "Rib pattern for better steering control",
+      "sizes": [
+        "145 R12 C"
+      ],
+      "load_index": [
+        "86/84"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Star Sprinter",
+      "type": "Radial",
+      "description": "Radial rib type tubeless",
+      "sizes": [
+        "145 R12 C",
+        "195 R14 C"
+      ],
+      "load_index": [
+        "86/84",
+        "106/104"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "BG Vano Plus",
+      "type": "Radial",
+      "description": "Specially developed for Toyota Hi-Ace",
+      "sizes": [
+        "195 R15 C"
+      ],
+      "load_index": [
+        "107/105"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "BG Alro Plus",
+      "type": "Radial",
+      "description": "Multifunctional tread, road grip and traction",
+      "sizes": [
+        "205/70 R15C"
+      ],
+      "load_index": [
+        "106/104"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Light Truck Tyres",
+      "name": "Euro Load",
+      "type": "Radial",
+      "description": "Strong grip, smooth ride",
+      "sizes": [
+        "185 R14 C"
+      ],
+      "load_index": [
+        "102/100"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Truck & Bus/OTR Tyres",
+      "name": "Traction Rib (TR) — TBR",
+      "type": "Bias",
+      "description": "Steering truck tyres and all-position bus tyres",
+      "sizes": [
+        "8.25-20",
+        "10.00-20"
+      ],
+      "ply_rating": [
+        "14",
+        "16"
+      ]
+    },
+    {
+      "category": "Truck & Bus/OTR Tyres",
+      "name": "Super Tiger (STGR)",
+      "type": "Bias",
+      "description": "Ultimate tyre for long haul service",
+      "sizes": [
+        "9.00-20",
+        "10.00-20",
+        "11.00-20"
+      ],
+      "ply_rating": [
+        "16",
+        "16",
+        "16"
+      ]
+    },
+    {
+      "category": "Truck & Bus/OTR Tyres",
+      "name": "Super Loader (SL)",
+      "type": "Bias",
+      "description": "Heavy-duty on-highway and off-road",
+      "sizes": [
+        "10.00-20",
+        "12.00-20"
+      ],
+      "ply_rating": [
+        "16",
+        "18"
+      ]
+    },
+    {
+      "category": "Truck & Bus/OTR Tyres",
+      "name": "GQT",
+      "type": "Bias",
+      "description": "Front wheel for long haul trucks, all-wheel for buses",
+      "sizes": [
+        "9.00-20"
+      ],
+      "ply_rating": [
+        "14"
+      ]
+    },
+    {
+      "category": "Truck & Bus/OTR Tyres",
+      "name": "Heavy Contract Transport (HCT)",
+      "type": "Bias",
+      "description": "Non-directional pattern for heavy duty service",
+      "sizes": [
+        "9.00-20",
+        "10.00-20",
+        "11.00-20",
+        "12.00-20"
+      ],
+      "ply_rating": [
+        "14",
+        "16",
+        "12/16",
+        "18"
+      ]
+    },
+    {
+      "category": "Truck & Bus/OTR Tyres",
+      "name": "BG Super Excave",
+      "type": "Bias",
+      "description": "Powerful and durable for heavy construction equipment",
+      "sizes": [
+        "9.00-20"
+      ],
+      "ply_rating": [
+        "16"
+      ]
+    },
+    {
+      "category": "Truck & Bus/OTR Tyres",
+      "name": "BG Rhino Power",
+      "type": "OTR",
+      "description": "Heavy duty loader tyre for digging and load operations",
+      "sizes": [
+        "23.5-25"
+      ],
+      "ply_rating": [
+        "24"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Agri Trac (AT)",
+      "type": "Front",
+      "description": "Front tyre for MF, Fiat and other tractors",
+      "sizes": [
+        "6.00-16",
+        "7.50-16"
+      ],
+      "ply_rating": [
+        "6/8/12",
+        "6/8/12"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Agri Rib (AR)",
+      "type": "Front",
+      "description": "Front position tyre for Belarus tractors",
+      "sizes": [
+        "7.50-20"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Agri Power (AP)",
+      "type": "Front",
+      "description": "Front tractor tyre for heavier loads on all surfaces",
+      "sizes": [
+        "6.00-16",
+        "7.50-16"
+      ],
+      "ply_rating": [
+        "8",
+        "8/12"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Agri Gold (AG)",
+      "type": "Front",
+      "description": "Front position for Belarus tractors",
+      "sizes": [
+        "9.00-20"
+      ],
+      "ply_rating": [
+        "12"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Power Lug (PL)",
+      "type": "Rear",
+      "description": "Original OEM rear for MF, New Holland and other tractors",
+      "sizes": [
+        "12.4/11-28"
+      ],
+      "ply_rating": [
+        "6/8"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Super Power Lug (SPL)",
+      "type": "Rear",
+      "description": "Original OEM rear for MF, New Holland and other tractors",
+      "sizes": [
+        "12.4/11-28",
+        "14.9/13-28"
+      ],
+      "ply_rating": [
+        "8",
+        "8"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Agri Lug",
+      "type": "Rear",
+      "description": "Rear tractor tyre for farm service",
+      "sizes": [
+        "12.4/11-28"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Black Bull",
+      "type": "Rear",
+      "description": "Rear tyre for heavier loads on all surfaces",
+      "sizes": [
+        "12.4-28"
+      ],
+      "ply_rating": [
+        "12"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Double Bull Power (DBP)",
+      "type": "Rear",
+      "description": "Rear tractor tyre for heavier loads on all surfaces",
+      "sizes": [
+        "14.9-28",
+        "13.6-28",
+        "18.4-30"
+      ],
+      "ply_rating": [
+        "12",
+        "12",
+        "18"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Super All Grip Traction (SAGT)",
+      "type": "Rear",
+      "description": "Original OEM rear for MF and New Holland heavy tractors",
+      "sizes": [
+        "16.9/14-30",
+        "18.4/15-30"
+      ],
+      "ply_rating": [
+        "8/14",
+        "8/14/18"
+      ]
+    },
+    {
+      "category": "Tractor Tyres",
+      "name": "Power Lug Plus (PLP)",
+      "type": "Rear",
+      "description": "Robust rear tractor tyre",
+      "sizes": [
+        "15.5-38",
+        "16.9-38"
+      ],
+      "ply_rating": [
+        "12",
+        "12"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Duro Grip (Front 70cc)",
+      "type": "Motorcycle",
+      "description": "Rib pattern for excellent road grip — 70cc front",
+      "sizes": [
+        "2.25-17F"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Duro Grip (Rear 70cc)",
+      "type": "Motorcycle",
+      "description": "Better fuel economy and cool running — 70cc rear",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Hyper Sonic (Front)",
+      "type": "Motorcycle",
+      "description": "Front tyre for 70cc and 125cc",
+      "sizes": [
+        "2.25-17F",
+        "2.50-18F"
+      ],
+      "ply_rating": [
+        "6",
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Hyper Sonic (Rear)",
+      "type": "Motorcycle",
+      "description": "Comfortable ride for 70cc and 125cc",
+      "sizes": [
+        "2.50-17R",
+        "3.00-17R",
+        "2.75-18R"
+      ],
+      "ply_rating": [
+        "6",
+        "6",
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Black Cobra",
+      "type": "Motorcycle",
+      "description": "Directional, style and grip — 70cc and 125cc",
+      "sizes": [
+        "2.50-17R",
+        "3.00-17R"
+      ],
+      "ply_rating": [
+        "6",
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Aqua Grip",
+      "type": "Motorcycle",
+      "description": "Wet-grip, deep channels — 70cc",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6/8"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Niagara XP",
+      "type": "Motorcycle",
+      "description": "All-season, ride comfort and mileage — 70cc",
+      "sizes": [
+        "2.50-17R",
+        "2.75-18R"
+      ],
+      "ply_rating": [
+        "6",
+        "6/8"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Cliff Ride",
+      "type": "Motorcycle",
+      "description": "High endurance — 125cc",
+      "sizes": [
+        "2.50-18F",
+        "2.75-18F"
+      ],
+      "ply_rating": [
+        "6",
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Harfun XP",
+      "type": "Motorcycle",
+      "description": "Style and performance — 70cc",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6/8"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Snake Eyes",
+      "type": "Motorcycle",
+      "description": "Good traction on all surfaces — 70cc",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Spyder Web",
+      "type": "Motorcycle",
+      "description": "High endurance — 125cc",
+      "sizes": [
+        "3.00-17R"
+      ],
+      "ply_rating": [
+        "6/8"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Goto Gold",
+      "type": "Motorcycle",
+      "description": "Better and comfortable ride — 125cc",
+      "sizes": [
+        "3.00-17R"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Challenger",
+      "type": "Motorcycle",
+      "description": "Better and comfortable ride — 125cc",
+      "sizes": [
+        "2.75-18F"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Goto Grip",
+      "type": "Motorcycle",
+      "description": "Designed for all surfaces — 125cc/150cc",
+      "sizes": [
+        "90/90-18"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Goto Grip (Radial)",
+      "type": "Motorcycle",
+      "description": "Engineered for endurance — 125cc/150cc",
+      "sizes": [
+        "90/90 R18"
+      ],
+      "speed_rating": [
+        "S"
+      ],
+      "load_index": [
+        "51"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Mustang",
+      "type": "Motorcycle",
+      "description": "Directional pattern, excellent traction — 125cc",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Tuff Rider",
+      "type": "Motorcycle",
+      "description": "Directional pattern, excellent traction — 70cc",
+      "sizes": [
+        "2.25-17F"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Sangee",
+      "type": "Motorcycle",
+      "description": "Block type pattern for comfortable ride — 70cc",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Jannan",
+      "type": "Motorcycle",
+      "description": "Directional pattern, better handling — 125cc",
+      "sizes": [
+        "2.50-18F"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Magneto",
+      "type": "Motorcycle",
+      "description": "New generation directional — 70cc",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Jungle Jim",
+      "type": "Motorcycle",
+      "description": "All-terrain pattern — 70cc",
+      "sizes": [
+        "2.50-17R"
+      ],
+      "ply_rating": [
+        "6"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Chief (Rickshaw Front)",
+      "type": "Rickshaw",
+      "description": "Durable, fuel efficient — rickshaw front",
+      "sizes": [
+        "4.00-8F"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Chief (Rickshaw Rear)",
+      "type": "Rickshaw",
+      "description": "Durable, fuel efficient — rickshaw rear (Lug)",
+      "sizes": [
+        "4.00-8R"
+      ],
+      "ply_rating": [
+        "8"
+      ]
+    },
+    {
+      "category": "Motorcycle/Rickshaw Tyres",
+      "name": "Chief (CNG Rickshaw)",
+      "type": "Rickshaw",
+      "description": "Reliable on all road surfaces — CNG rickshaw",
+      "sizes": [
+        "135-10"
+      ],
+      "ply_rating": [
+        "10"
+      ]
+    }
+  ]
+}
