@@ -211,10 +211,12 @@ export default function Auth({ onAuth }: AuthProps) {
     setLoading(true);
     try {
       const data = await api.auth.forgotPassword(form.email) as any;
-      setResetToken(data.resetToken);
       setForm({});
       setErrors({});
-      setView('reset');
+      setSuccessMsg(data?.message || 'Ask your administrator to reset your password.');
+      setSuccess(true);
+      setView('login');
+      setTimeout(() => { setSuccess(false); setSuccessMsg(''); }, 8000);
     } catch (err: any) {
       setErrors({ _form: err.message || 'Failed to generate reset link. Please try again.' });
     } finally {

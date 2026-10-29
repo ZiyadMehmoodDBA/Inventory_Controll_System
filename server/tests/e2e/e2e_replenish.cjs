@@ -57,8 +57,9 @@ module.exports = async ({ page, check, api, errors, SHOTS, label }) => {
   await page.screenshot({ path: path.join(SHOTS, `e2e-${label}-replenish-editor.png`) });
   await ed.getByRole('button', { name: 'Save settings' }).click();
   check('item parameters saved from the editor', await poll(async () => { const r = await rec(); return r.safety_stock === 3 && r.safety_basis === 'set' && r.moq === 12 && r.order_multiple === 6; }));
-  const seas = (await api('GET', '/inventory/replenishment/seasonality')).body.items.find(x => x.id === item);
-  check('seasonality saved', seas && seas.seasonality[11] === 2, JSON.stringify(seas));
+  let seas;   // the seasonality is saved by a second request after the item parameters, so wait for it
+  const seasOk = await poll(async () => { seas = (await api('GET', '/inventory/replenishment/seasonality')).body.items.find(x => x.id === item); return !!seas && seas.seasonality[11] === 2; });
+  check('seasonality saved', seasOk, JSON.stringify(seas));
 
   // incoming, requirements, supplier lead time
   await modal.getByRole('button', { name: 'Incoming & requirements' }).click();

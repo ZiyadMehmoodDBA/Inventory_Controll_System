@@ -9,6 +9,7 @@ import {
 import { api } from '../api/client';
 import { formatCurrency } from '../lib/utils';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { usePermissions } from '../lib/permissions';
 import ExcelImportModal from '../components/ExcelImportModal';
 import EmptyState from '../components/EmptyState';
 import { usePagination } from '../lib/usePagination';
@@ -18,6 +19,8 @@ import AddEditSupplierModal from '../components/AddEditSupplierModal';
 
 export default function Suppliers() {
   const { data: suppliers, loading, refreshing, error, refresh: fetchSuppliers } = useFetch<any>(api.suppliers.list);
+  const { can } = usePermissions();
+  const canManage = can('suppliers.manage');
   const [search,         setSearch]         = useState('');
   const [modalSupplier,  setModalSupplier]  = useState<any | null | undefined>(null);
   const [deleteSupplier, setDeleteSupplier] = useState<any>(null);
@@ -95,17 +98,21 @@ export default function Suppliers() {
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, code, phone..."
                 className="pl-8 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 w-full sm:w-44" />
             </div>
-            <button onClick={() => setShowImport(true)} title="Import from Excel"
+            {canManage && (
+<button onClick={() => setShowImport(true)} title="Import from Excel"
               className="flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs sm:text-sm font-medium px-2.5 sm:px-3 py-2 rounded-lg hover:bg-slate-200 transition-colors whitespace-nowrap">
               <FileSpreadsheet size={14} />
               <span className="hidden sm:inline">Import Excel</span>
             </button>
-            <button onClick={() => setModalSupplier(undefined)} title="Add new supplier"
+)}
+            {canManage && (
+<button onClick={() => setModalSupplier(undefined)} title="Add new supplier"
               className="flex items-center gap-1.5 bg-teal-600 text-white text-xs sm:text-sm font-medium px-2.5 sm:px-3 py-2 rounded-lg hover:bg-teal-700 transition-colors whitespace-nowrap">
               <Plus size={14} />
               <span className="hidden sm:inline">Add Supplier</span>
               <span className="sm:hidden">Add</span>
             </button>
+)}
           </div>
         </div>
 
@@ -137,14 +144,18 @@ export default function Suppliers() {
                 >
                   {/* Action buttons */}
                   <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => setModalSupplier(s)} title="Edit supplier"
+                    {canManage && (
+<button onClick={() => setModalSupplier(s)} title="Edit supplier"
                       className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => setDeleteSupplier(s)} title="Delete supplier"
+)}
+                    {canManage && (
+<button onClick={() => setDeleteSupplier(s)} title="Delete supplier"
                       className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                       <Trash2 size={13} />
                     </button>
+)}
                   </div>
 
                   {/* Header */}

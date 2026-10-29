@@ -207,6 +207,10 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     // customer_id is optional — null means walk-in (no AR/ledger entry will be created)
+    if (customer_id != null && customer_id !== '') {
+      const own = await pool.request().input('c', sql.Int, customer_id).input('o', sql.Int, orgId).query('SELECT 1 AS ok FROM customers WHERE id = @c AND organization_id = @o');
+      if (!own.recordset.length) return res.status(400).json({ error: 'Customer not found', code: 'INVALID_CUSTOMER' });
+    }
     if (!items?.length) return res.status(400).json({ error: 'At least one item is required' });
     if (badQty(items)) return res.status(400).json({ error: 'Item quantities must be positive whole numbers' });
 

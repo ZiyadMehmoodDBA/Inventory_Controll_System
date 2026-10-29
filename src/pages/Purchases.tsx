@@ -5,6 +5,7 @@ import { Plus, Search, Eye, RefreshCw, AlertCircle, Trash2, PackageCheck, XCircl
 import { api } from '../api/client';
 import { formatCurrency, formatDate } from '../lib/utils';
 import GRNModal from '../components/GRNModal';
+import { usePermissions } from '../lib/permissions';
 import { useFetch } from '../lib/useFetch';
 import { usePagination } from '../lib/usePagination';
 import Pagination from '../components/Pagination';
@@ -22,6 +23,9 @@ const statusColor: Record<string, string> = {
 
 export default function Purchases() {
   const { data: purchases, setData: setPurchases, loading, refreshing, error, setError, refresh: fetchPurchases } = useFetch<any>(api.purchases.list);
+  const { can } = usePermissions();
+  const canManage = can('purchases.manage');
+  const canReceive = can('purchases.manage') || can('stock.receive');
   const [search, setSearch]       = useState('');
   const [filter, setFilter]       = useState('all');
   const [showModal, setShowModal] = useState(false);
@@ -119,7 +123,8 @@ export default function Purchases() {
               <button onClick={fetchPurchases} title="Refresh" className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
                 <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
               </button>
-              <button
+              {canManage && (
+<button
                 onClick={() => setShowImport(true)}
                 title="Import purchase orders from Excel"
                 className="flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs sm:text-sm font-medium px-2.5 sm:px-3 py-2 rounded-lg hover:bg-slate-200 transition-colors"
@@ -127,7 +132,9 @@ export default function Purchases() {
                 <FileSpreadsheet size={14} />
                 <span className="hidden sm:inline">Import Excel</span>
               </button>
-              <button
+)}
+              {canManage && (
+<button
                 onClick={() => setShowModal(true)}
                 title="Create a new purchase order"
                 className="flex items-center gap-1.5 bg-teal-600 text-white text-xs sm:text-sm font-medium px-2.5 sm:px-3 py-2 rounded-lg hover:bg-teal-700 transition-colors"
@@ -136,6 +143,7 @@ export default function Purchases() {
                 <span className="hidden sm:inline">Receive Stock (GRN)</span>
                 <span className="sm:hidden">New</span>
               </button>
+)}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -223,7 +231,7 @@ export default function Purchases() {
                         </button>
 
                         {/* Record Payment */}
-                        {po.status !== 'cancelled' && balanceDue > 0.005 && (
+                        {canManage && po.status !== 'cancelled' && balanceDue > 0.005 && (
                           <button
                             onClick={() => setPaymentPO(po)}
                             title="Record payment for this PO"
@@ -234,7 +242,7 @@ export default function Purchases() {
                         )}
 
                         {/* Mark as Received (pending only) */}
-                        {po.status === 'pending' && (
+                        {canReceive && po.status === 'pending' && (
                           <button
                             onClick={() => setReceiveConfirm(po)}
                             disabled={actionLoading === po.id}
@@ -248,7 +256,7 @@ export default function Purchases() {
                         )}
 
                         {/* Cancel (pending only) */}
-                        {po.status === 'pending' && (
+                        {canManage && po.status === 'pending' && (
                           <button
                             onClick={() => setCancelConfirm(po)}
                             disabled={actionLoading === po.id}
@@ -259,13 +267,15 @@ export default function Purchases() {
                           </button>
                         )}
 
-                        <button
+                        {canManage && (
+<button
                           onClick={() => setDeletePO(po)}
                           title="Delete purchase order"
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>
+)}
                       </div>
                     </td>
                   </tr>

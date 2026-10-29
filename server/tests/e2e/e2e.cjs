@@ -11,6 +11,13 @@ const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 let pass = 0, fail = 0;
 const check = (n, c, x = '') => { (c ? pass++ : fail++); console.log(`${c ? 'PASS' : 'FAIL'}  ${n}${c ? '' : '  -> ' + x}`); };
 
+// Forward a browser API call to the spare server. A dropped connection (keep-alive socket closed by the server) is retried, never allowed to crash the run.
+const forward = async (route, url, headers) => {
+  for (let i = 0; i < 4; i++) {
+    try { return await route.fulfill({ response: await route.fetch({ url, headers }) }); } catch (e) { if (i === 3) return route.fulfill({ status: 502, json: { error: 'test proxy: ' + e.message } }).catch(() => {}); await new Promise(r => setTimeout(r, 250)); }
+  }
+};
+
 (async () => {
   const pool = await getPool();
   const org = (await pool.request().query("INSERT INTO organizations (name, code, type) OUTPUT INSERTED.id VALUES ('E2E ORG', 'E2E' + CAST(ABS(CHECKSUM(NEWID())) % 100000 AS NVARCHAR), 'retail')")).recordset[0].id;
@@ -48,8 +55,7 @@ const check = (n, c, x = '') => { (c ? pass++ : fail++); console.log(`${c ? 'PAS
       }
       const headers = { ...route.request().headers(), authorization: `Bearer ${token}`, 'x-branch-id': String(br), 'x-org-id': String(org) };
       delete headers.host;
-      const r = await route.fetch({ url: 'http://localhost:3055' + url.pathname + url.search, headers });
-      return route.fulfill({ response: r });
+      return forward(route, 'http://localhost:3055' + url.pathname + url.search, headers);
     });
     await page.addInitScript(() => { try { sessionStorage.setItem('tunegen_rt', 'stub'); localStorage.setItem('branchId', '1'); } catch { /* */ } });
     await page.goto('http://localhost:5199/tunegen/');

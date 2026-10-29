@@ -9,7 +9,10 @@
     "test": "node --test utils/stock.test.js reporting/reporting.test.js",
     "test:integration": "node tests/run-integration.cjs",
     "backup": "node scripts/backup.js backup",
-    "backup:drill": "node scripts/backup.js drill"
+    "backup:drill": "node scripts/backup.js drill",
+    "test:e2e": "node tests/run-e2e.cjs",
+    "backup:pitr": "node scripts/backup.js pitr",
+    "backup:status": "node scripts/backup.js status"
   },
   "devDependencies": {
     "jest": "^29.7.0"

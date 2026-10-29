@@ -51,16 +51,36 @@ Inventory accuracy, stockout rate, inventory turnover, days on hand, excess and 
 - Money measures are withheld from users without the cost permission.
 
 ## Backup and recovery
-- `node scripts/backup.js backup [--log]`: compressed, checksummed full backup, verified with `RESTORE VERIFYONLY`; `--log` adds a verified log backup.
-- `node scripts/backup.js drill`: restores the newest backup into a scratch database, runs `DBCC CHECKDB`, compares ledger rows, ledger net quantity, item and location balances, adjustments, audit rows and migrations with the live database, confirms the append-only triggers came back, then drops the scratch copy. Exit code 1 on any failure.
-- `node scripts/backup.js prune [days]`.
-- The database is in FULL recovery model with no scheduled backups. **Schedule** `backup` daily and `backup --log` every 15-60 minutes (SQL Agent or Windows Task Scheduler) and `drill` weekly, and copy `BACKUP_DIR` off the database host.
+Code: `utils/dbBackup.js`; CLI `node scripts/backup.js <backup|log|drill|pitr|prune|status>`; schedule `jobs/backupJob.js`; evidence in table `backup_runs`.
+- **Schedule** (set `BACKUP_JOB=on` in `server/.env`): full backup 02:00, transaction-log backup every 30 min (recovery point objective 30 min), restore drill and point-in-time drill Sunday, prune 05:00 (`BACKUP_RETENTION_DAYS`, default 14). Jobs never overlap. Every run, success or failure, is a row in `backup_runs`; `node scripts/backup.js status` shows the last success per kind.
+- **Off-host copy:** set `OFFSITE_BACKUP_DIR` to a UNC share on another machine that the SQL Server service account can write. SQL Server Standard has no `MIRROR TO`, so the full backup is taken a second time (`COPY_ONLY`, verified). Until this is set the run is recorded as "NO off-host copy configured". **The database host's own disk is not a recovery plan.**
+- **Restore drill:** restores the newest full backup into a scratch database, runs DBCC CHECKDB, and fails if item balances, ledger and location balances disagree or the append-only triggers are missing. Comparison with the live database is informational only (live moves on after a backup).
+- **Point-in-time recovery drill:** (1) a synthetic scratch database in FULL recovery gets a full backup, row A, a noted time, row B, a log backup; restoring full + log STOPAT that time must return A without B; (2) the production newest full backup plus the log backups after it are restored and verified like a drill.
+- **Evidence (2026-10-29):** verified full and log backup; restore drill passed (CHECKDB clean, 0 mismatched items, 2 s); point-in-time drill passed (synthetic exact restore to the second, production full+log chain restored, CHECKDB clean).
+- **Operations still required of the business:** set `BACKUP_JOB=on`, set `OFFSITE_BACKUP_DIR`, and monitor: alert when the last full is older than 26 h, the last log older than 90 min, or the latest drill failed.
+
+## Data integrity housekeeping (2026-10-29)
+- 195 orphan ledger rows (and 15 cost layers) from deleted test organisations were verified (organisation gone, no users or branches, timestamps match the test runs), exported to `scripts/purged/`, backed up first, and removed with `scripts/purge-orphan-movements.js --apply`. The script refuses rows whose organisation still exists.
+- Migration 0004 adds `FK_stock_movements_tire` with NO ACTION: an item with history can no longer be deleted; retire it by status. 287 orphan audit rows from the same test organisations remain (append-only; harmless, not purged without a decision).
+
+## Permission exceptions (formal)
+- **Sales void and sales delete are administrator-only** (`requireRole('org_admin')`), deliberately outside the permission catalogue: they reverse revenue, stock and the customer ledger in one step and should not be delegable by configuration. Reversing a recorded sale payment needs manager or administrator; purchase payments need `purchases.manage`.
+- Marking a sale's status (paid/partial/pending/overdue) and recording a sale payment stay open to any signed-in user of the organisation, because the cashier workflow needs it. Revisit if a separate cashier/finance split is required.
+
+## Security fixes from the commit review (2026-10-29)
+- `/auth/forgot-password` returned a password-reset token to anyone who knew an email address (account takeover). It now returns the same message for every address and no token; administrators reset passwords in Settings > Users. Self-service reset needs an email service first.
+- `/auth/google` accepted a Google token issued to any application. It now requires `GOOGLE_CLIENT_ID` (fails closed with 503 when unset) and checks audience and issuer. **If you use Google sign-in, set `GOOGLE_CLIENT_ID` in `server/.env` to the same value as `VITE_GOOGLE_CLIENT_ID`.**
+- A sale could reference another organisation's customer; the customer must now belong to the organisation.
+- Payment reversals and purchase payments are permission-guarded (above). smoke19 covers these.
 
 ## Open items (not proven or not built)
 - Supplier in-full delivery is not measurable: a purchase order is received as a whole, not per line. On-time delivery and lead time are.
 - Order fulfillment accuracy is the share of orders not voided or returned. There is no pick/ship/back-order step to measure against.
 - Turnover and carrying cost use an opening value rebuilt from the ledger and the current valuation method; they are management figures, not a ledger close.
-- Backups are not scheduled by the application; the schedule above is an operations task.
-- Point-in-time restore from log backups is supported by the files but not exercised by the drill.
 - Remaining routes still validate by hand; only access, users and KPI routes use `utils/validate.js`.
 - Data imports (Excel and catalog) are covered by smoke/smoke2 for good and bad rows; very large files are untested.
+- Self-service password reset is disabled until an email service exists.
+- Browser suites: `npm run test:e2e` (tests/run-e2e.cjs) warms Vite, runs each suite on a fresh API and retries a failed suite once; a pass-on-retry is reported as FLAKY, never as green.
+- Known limitations kept as limitations: stock counts are not frozen during counting, the sale form has no location picker, serial-tracked cross-branch transfers are untested, valuation method changes are not retroactive, there is no transfer approval workflow, and very large imports are untested.
+- Deferred by decision: supplier in-full delivery (needs per-line received quantities) and order fulfillment accuracy beyond void/return (needs pick/ship/back-order events).
+- `db.js` still creates the baseline schema (migration version 0). New schema changes go in `migrations/` only.

@@ -88,7 +88,7 @@ const body = async ({ page, check, api, SHOTS, label }) => {
       organization: { name: 'E2E ORG', code: 'E2E', currency: 'PKR' }, branches: [{ id: brId, name: 'Main', code: 'MAIN' }] } } });
     const headers = { ...route.request().headers(), authorization: `Bearer ${stoken}`, 'x-branch-id': String(brId), 'x-org-id': String(orgId) };
     delete headers.host;
-    return route.fulfill({ response: await route.fetch({ url: 'http://localhost:3055' + url.pathname + url.search, headers }) });
+    for (let i = 0; i < 4; i++) { try { return await route.fulfill({ response: await route.fetch({ url: 'http://localhost:3055' + url.pathname + url.search, headers }) }); } catch (e) { if (i === 3) return route.fulfill({ status: 502, json: { error: 'test proxy: ' + e.message } }).catch(() => {}); await new Promise(x => setTimeout(x, 250)); } }
   });
   await page.reload();
   await page.getByRole('button', { name: /^Inventory/ }).first().click({ timeout: 20000 });

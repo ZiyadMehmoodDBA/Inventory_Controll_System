@@ -274,40 +274,15 @@ router.post('/refresh', async (req, res) => {
 });
 
 // POST /api/auth/forgot-password
-// Generates a short-lived JWT reset token. Returns it directly (internal system — no email service).
+// There is no email service, so a reset token must NEVER be returned to the caller: anyone who knew an address could take over the account.
+// The answer is identical whether or not the account exists (no user enumeration). An administrator resets the password from Settings -> Users.
 router.post('/forgot-password', async (req, res) => {
-  try {
-    const { email } = req.body || {};
-    const cleanEmail = sanitize(email, 100).toLowerCase();
-    if (!isValidEmail(cleanEmail)) {
-      return res.status(400).json({ error: 'Enter a valid email address' });
-    }
-
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('email', sql.NVarChar, cleanEmail)
-      .query('SELECT id, name, is_active FROM users WHERE email = @email');
-
-    if (!result.recordset.length || !result.recordset[0].is_active) {
-      return res.status(404).json({ error: `No active account found for ${cleanEmail}.` });
-    }
-
-    const user = result.recordset[0];
-    // Sign a short-lived reset token — no extra table needed
-    const resetToken = jwt.sign(
-      { userId: user.id, type: 'password-reset' },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    res.json({ resetToken });
-  } catch (err) {
-    console.error('Forgot-password error:', err.message);
-    res.status(500).json({ error: 'Failed to generate reset token. Please try again.' });
-  }
+  const cleanEmail = sanitize((req.body || {}).email, 100).toLowerCase();
+  if (!isValidEmail(cleanEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
+  console.warn(`[auth] password reset requested for an account; no self-service reset is available (administrator must reset it)`);
+  res.json({ message: 'Self-service password reset is not available. Ask your administrator to reset your password from Settings > Users.' });
 });
 
-// POST /api/auth/reset-password
 router.post('/reset-password', async (req, res) => {
   try {
     const { resetToken, newPassword } = req.body || {};
@@ -364,6 +339,9 @@ router.post('/google', async (req, res) => {
       return res.status(400).json({ error: 'Google credential is required' });
     }
 
+    // Fail closed: without the application's client id any Google-signed token (issued to any other app) would be accepted.
+    if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'Google sign-in is not configured on the server.' });
+
     // Verify the ID token with Google — this checks signature + expiry server-side
     const tokenRes = await fetch(
       `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
@@ -373,6 +351,9 @@ router.post('/google', async (req, res) => {
     }
     const tokenInfo = await tokenRes.json();
 
+    if (tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID || !['accounts.google.com', 'https://accounts.google.com'].includes(tokenInfo.iss)) {
+      return res.status(401).json({ error: 'Invalid Google token. Please try again.' });
+    }
     if (!tokenInfo.email_verified || tokenInfo.email_verified === 'false') {
       return res.status(401).json({ error: 'Google account email is not verified.' });
     }

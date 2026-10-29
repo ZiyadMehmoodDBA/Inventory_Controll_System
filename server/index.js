@@ -12,6 +12,7 @@ const { requireModule } = require('./utils/businessTypes');
 const { duplicateGuard } = require('./middleware/duplicateGuard');
 const { initCatalogScraperJob } = require('./jobs/catalogScraper');
 const { initDemoCleanupJob }    = require('./jobs/demoCleanup');
+const { initBackupJob }         = require('./jobs/backupJob');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -136,6 +137,7 @@ app.use(errorMiddleware);
     await setupDatabase();
     await initCatalogScraperJob();
     initDemoCleanupJob();
+    initBackupJob();
     app.listen(PORT, () => {
       console.log(`🚀 TuneGEN API running at http://localhost:${PORT}`);
     });

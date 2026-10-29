@@ -2,6 +2,8 @@ const express = require('express');
 const router  = express.Router();
 const { getPool, sql } = require('../db');
 const { getContext }   = require('../context');
+const { requireRole }   = require('../middleware/auth');
+const P = require('../utils/permissions');
 
 // POST /api/payments/sale
 router.post('/sale', async (req, res) => {
@@ -98,7 +100,8 @@ router.get('/sale/:saleId', async (req, res) => {
   }
 });
 
-router.delete('/sale/:id', async (req, res) => {
+// Reversing a recorded payment is a financial correction: managers and administrators only.
+router.delete('/sale/:id', requireRole('org_admin', 'branch_manager'), async (req, res) => {
   const { orgId } = getContext(req);
   const pool        = await getPool();
   const transaction = new sql.Transaction(pool);
@@ -150,7 +153,7 @@ router.delete('/sale/:id', async (req, res) => {
 });
 
 // POST /api/payments/purchase
-router.post('/purchase', async (req, res) => {
+router.post('/purchase', P.requirePermission('purchases.manage'), async (req, res) => {
   const { orgId, branchId } = getContext(req);
   const pool        = await getPool();
   const transaction = new sql.Transaction(pool);
@@ -237,7 +240,7 @@ router.get('/purchase/:purchaseId', async (req, res) => {
   }
 });
 
-router.delete('/purchase/:id', async (req, res) => {
+router.delete('/purchase/:id', P.requirePermission('purchases.manage'), async (req, res) => {
   const { orgId } = getContext(req);
   const pool        = await getPool();
   const transaction = new sql.Transaction(pool);
