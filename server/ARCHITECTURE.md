@@ -30,3 +30,6 @@ The append-only triggers refuse deletes unless the connection sets `sp_set_sessi
 
 ## Platform administration
 Database-wide controls (the backup console, `/api/backups`) are limited to platform administrators: `users.is_platform_admin`, read live per request by `utils/platform.js`, set only by `scripts/grant-platform-admin.js`. An organisation administrator is not one by default, because backup folders are written by the database server and the backups contain every organisation's data. Backup jobs and settings are rows (`backup_jobs`, `platform_settings`) applied by `jobs/backupJob.js\` without a restart.
+
+## Catalogue scraper
+Business Type -> profile (`catalogue/profiles.js`, data, overridable per organisation) -> job manager (`catalogue/service.js`, in-process, one per organisation) -> safe fetch (`netguard.js`: SSRF guard at connect time, robots.txt, throttle, retry) -> extractor (`extract.js`: JSON-LD, microdata, Open Graph, HTML) -> normaliser (`normalize.js`) -> duplicate detection (existing products and the scrape itself) -> review (`catalogue_records`, raw kept in `catalogue_raw`) -> approved import into `tires` (the product master) with audit and history. Adding a business type or attribute is a profile entry plus, for a new kind of value, one extractor in `normalize.js`; the engine and the UI do not change.

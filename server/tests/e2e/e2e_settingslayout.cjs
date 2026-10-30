@@ -50,7 +50,7 @@ const body = async ({ page, check, SHOTS, label }) => {
     if (w === 1440 || w === 400) await page.screenshot({ path: path.join(SHOTS, `e2e-${label}-settings-${w}.png`) });
   }
   const j = w => JSON.stringify(out[w]);
-  check('the platform admin of a general store sees eight tabs (Lookups and Catalog are tyre-only)', out[1440].count === 8, j(1440));
+  check('the platform admin of a general store sees nine tabs (Lookup Tables is tyre-only)', out[1440].count === 9, j(1440));
   for (const w of Object.keys(out)) {
     check(`${w}px: the tab row has no horizontal scroll`, out[w].barOverflow <= 0 && !/auto|scroll/.test(out[w].overflowX), j(w));
     check(`${w}px: the page has no horizontal scroll`, out[w].pageOverflow <= 0 && out[w].mainOverflow <= 0, j(w));
@@ -62,7 +62,7 @@ const body = async ({ page, check, SHOTS, label }) => {
   check('the tabs sit close under the heading (gap of 16px or less)', Object.values(out).every(m => m.gap >= 0 && m.gap <= 16), JSON.stringify(Object.values(out).map(m => m.gap)));
   check('the heading starts close to the top of the page', Object.values(out).every(m => m.headTop <= 16), JSON.stringify(Object.values(out).map(m => m.headTop)));
 
-  // the longest case: a tyre shop adds Lookup Tables and Catalog Scraper (ten tabs)
+  // the longest case: a tyre shop adds Lookup Tables (ten tabs)
   await pool.request().input('o', sql.Int, orgId).query("MERGE settings AS t USING (SELECT @o AS organization_id, 'business_type' AS [key]) AS s ON t.organization_id = s.organization_id AND t.[key] = s.[key] WHEN MATCHED THEN UPDATE SET value = 'tyre_shop' WHEN NOT MATCHED THEN INSERT (organization_id, [key], value) VALUES (@o, 'business_type', 'tyre_shop');");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.reload();

@@ -124,6 +124,7 @@ app.use('/api/backups',       requirePlatformAdmin, require('./routes/backups'))
 app.use('/api/audit',         require('./routes/audit'));
 app.use('/api/profile',       require('./routes/profile'));
 app.use('/api/catalog',       requireModule('tyreCatalog'), require('./routes/catalog'));
+app.use('/api/catalogue',     require('./routes/catalogue'));   // business-aware product catalogue scraper (all business types)
 app.use('/api/fitments',      requireModule('tyreFitment'), require('./routes/fitments'));
 app.use('/api/reports',       require('./routes/reports'));
 
@@ -140,6 +141,7 @@ app.use(errorMiddleware);
     await initCatalogScraperJob();
     initDemoCleanupJob();
     initBackupJob();
+    require('./catalogue/service').recover();
     app.listen(PORT, () => {
       console.log(`🚀 TuneGEN API running at http://localhost:${PORT}`);
     });

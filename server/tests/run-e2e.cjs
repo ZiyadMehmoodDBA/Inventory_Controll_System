@@ -22,7 +22,7 @@ async function until(url, ms = 60000) {
 const killTree = p => { try { spawnSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* gone */ } };
 
 async function once(mod) {
-  const api = spawn(process.execPath, ['index.js'], { cwd: root, env: { ...process.env, PORT: API, BACKUP_SCHEDULER: 'off' }, stdio: 'ignore' });
+  const api = spawn(process.execPath, ['index.js'], { cwd: root, env: { ...process.env, PORT: API, BACKUP_SCHEDULER: 'off', CATALOGUE_ALLOW_LOOPBACK: 'on', CATALOGUE_MIN_GAP_MS: '0' }, stdio: 'ignore' });
   try {
     await until(`http://localhost:${API}/api/health`);
     const r = spawnSync(process.execPath, [path.join(dir, 'e2e.cjs'), `run_${mod}`, 'extra', path.join(dir, `e2e_${mod}.cjs`)], { cwd: root, encoding: 'utf8', timeout: 300000 });

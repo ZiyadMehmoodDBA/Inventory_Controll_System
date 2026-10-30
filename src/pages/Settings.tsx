@@ -14,8 +14,8 @@ import UsersTab        from './settings/UsersTab';
 import RolesTab        from './settings/RolesTab';
 import SystemInfoTab   from './settings/SystemInfoTab';
 import BackupsTab      from './settings/BackupsTab';
-import CatalogScraperTab from './settings/CatalogScraperTab';
-import { useModules, useTerms } from '../lib/businessTypes';
+import CatalogueScraperTab from './settings/CatalogueScraperTab';
+import { useTerms } from '../lib/businessTypes';
 import { usePermissions } from '../lib/permissions';
 
 type Tab = 'company' | 'defaults' | 'products' | 'lookups' | 'services' | 'users' | 'roles' | 'system' | 'catalog' | 'backups';
@@ -28,7 +28,7 @@ const ALL_TABS: { id: Tab; label: string; icon: React.ElementType; adminOnly?: b
   { id: 'services', label: 'Services',               icon: Wrench   },
   { id: 'users',    label: 'Users',                  icon: Users    },
   { id: 'roles',    label: 'Roles & permissions',    icon: ShieldCheck },
-  { id: 'catalog',  label: 'Catalog Scraper',        icon: Globe,   adminOnly: true },
+  { id: 'catalog',  label: 'Catalogue',              icon: Globe,   adminOnly: true },
   { id: 'system',   label: 'System',                 icon: Server,  adminOnly: true },
   { id: 'backups',  label: 'Backups',                icon: DatabaseBackup, platformOnly: true },
 ];
@@ -46,10 +46,9 @@ function getCurrentUserRole(): string | null {
 
 export default function Settings() {
   const isAdmin = getCurrentUserRole() === 'org_admin';
-  const modules = useModules();
   const terms   = useTerms();
   const { platformAdmin } = usePermissions();
-  const TABS    = ALL_TABS.filter(t => (!t.adminOnly || isAdmin) && (!t.platformOnly || platformAdmin) && (t.id !== 'catalog' || modules.tyreCatalog) && (t.id !== 'lookups' || terms.tyre));
+  const TABS    = ALL_TABS.filter(t => (!t.adminOnly || isAdmin) && (!t.platformOnly || platformAdmin) && (t.id !== 'lookups' || terms.tyre));
 
   const [tab, setTab]           = useState<Tab>('company');
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -131,7 +130,7 @@ export default function Settings() {
           {tab === 'services' && <ServicesTab />}
           {tab === 'users'    && <UsersTab />}
           {tab === 'roles'    && <RolesTab />}
-          {tab === 'catalog'  && isAdmin && modules.tyreCatalog && <CatalogScraperTab />}
+          {tab === 'catalog'  && isAdmin && <CatalogueScraperTab />}
           {tab === 'system'   && isAdmin && <SystemInfoTab />}
           {tab === 'backups'  && platformAdmin && <BackupsTab />}
         </div>
