@@ -20,6 +20,20 @@ const ALLOWED_PORTS = new Set(['', '80', '443', '8080', '8443']);
 const allowLoopback = () => process.env.CATALOGUE_ALLOW_LOOPBACK === 'on';
 
 const ipv4 = s => s.split('.').map(Number);
+/** Eight 16-bit groups of an IPv6 address (handles :: and a trailing dotted IPv4), or null when it cannot be read. */
+function expandV6(addr) {
+  let x = addr.toLowerCase().split('%')[0];
+  const tail = x.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (tail) { const [a, b, c, d] = tail.slice(1).map(Number); if ([a, b, c, d].some(n => n > 255)) return null; x = x.slice(0, tail.index) + ((a << 8) | b).toString(16) + ':' + ((c << 8) | d).toString(16); }
+  const parts = x.split('::');
+  if (parts.length > 2) return null;
+  const head = parts[0] ? parts[0].split(':') : [], rest = parts.length === 2 && parts[1] ? parts[1].split(':') : [];
+  const fill = parts.length === 2 ? 8 - head.length - rest.length : 0;
+  if (fill < 0 || (parts.length === 1 && head.length !== 8)) return null;
+  const g = [...head, ...Array(fill).fill('0'), ...rest].map(p => parseInt(p || '0', 16));
+  return g.length === 8 && g.every(n => Number.isInteger(n) && n >= 0 && n <= 0xffff) ? g : null;
+}
+
 function isBlockedAddress(addr) {
   if (net.isIPv4(addr)) {
     const [a, b] = ipv4(addr);
@@ -28,14 +42,18 @@ function isBlockedAddress(addr) {
       || (a === 192 && b === 168) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
   }
   if (net.isIPv6(addr)) {
-    const x = addr.toLowerCase();
-    if (x === '::1') return !allowLoopback();
-    if (x === '::') return true;
-    const dotted = x.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (dotted) return isBlockedAddress(dotted[1]);
-    const hex = x.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);      // the URL parser rewrites ::ffff:10.0.0.1 to this form
-    if (hex) { const hi = parseInt(hex[1], 16), lo = parseInt(hex[2], 16); return isBlockedAddress(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`); }
-    return /^f[cd]/.test(x) || /^fe[89ab]/.test(x) || x.startsWith('ff');
+    const h = expandV6(addr);
+    if (!h) return true;
+    const zero = n => h.slice(0, n).every(x => x === 0);
+    const v4 = (hi, lo) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+    if (zero(7) && h[7] === 1) return !allowLoopback();                         // ::1
+    if (zero(5) && h[5] === 0xffff) return isBlockedAddress(v4(h[6], h[7]));     // ::ffff:a.b.c.d (IPv4-mapped)
+    if (zero(6)) return true;                                                    // :: and ::a.b.c.d (IPv4-compatible)
+    if (h[0] === 0x64 && h[1] === 0xff9b) return true;                           // 64:ff9b::/96 and 64:ff9b:1::/48 (NAT64 reaches IPv4 hosts)
+    if (h[0] === 0x2002) return true;                                            // 6to4: an IPv4 address in disguise
+    if (h[0] === 0x2001 && (h[1] === 0 || h[1] === 0xdb8)) return true;          // Teredo, documentation
+    if (h[0] === 0x100 && h[1] === 0 && h[2] === 0 && h[3] === 0) return true;   // 100::/64 discard
+    return (h[0] & 0xfe00) === 0xfc00 || (h[0] & 0xffc0) === 0xfe80 || (h[0] & 0xffc0) === 0xfec0 || (h[0] & 0xff00) === 0xff00;   // unique-local, link-local, site-local, multicast
   }
   return true;
 }
@@ -121,15 +139,29 @@ function parseRobots(text) {
     const k = m[1].toLowerCase(), val = m[2];
     if (k === 'user-agent') { if (!lastWasAgent) { cur = { agents: [], rules: [] }; groups.push(cur); } cur.agents.push(val.toLowerCase()); lastWasAgent = true; continue; }
     lastWasAgent = false;
-    if (cur && (k === 'allow' || k === 'disallow')) cur.rules.push({ allow: k === 'allow', path: val });
+    if (cur && (k === 'allow' || k === 'disallow') && cur.rules.length < 500) cur.rules.push({ allow: k === 'allow', path: val.slice(0, 200) });
   }
   const mine = groups.filter(g => g.agents.some(a => a !== '*' && 'tunegencataloguebot'.includes(a)));
   return (mine.length ? mine : groups.filter(g => g.agents.includes('*'))).flatMap(g => g.rules);
 }
+// Wildcard match without building a regex from site-controlled text (a hostile robots.txt must not be able to stall the server):
+// pieces between * must appear in order, anchored at the start, and at the end when the pattern ends in $.
 const ruleMatches = (path, pattern) => {
   if (!pattern) return false;
-  const re = new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\\\$$/, '$'));
-  return re.test(path);
+  const anchored = pattern.endsWith('$');
+  const pieces = (anchored ? pattern.slice(0, -1) : pattern).split('*');
+  if (pieces.length === 1) return anchored ? path === pieces[0] : path.startsWith(pieces[0]);
+  if (!path.startsWith(pieces[0])) return false;
+  let pos = pieces[0].length;
+  const last = anchored ? pieces[pieces.length - 1] : '';
+  const middle = pieces.slice(1, anchored ? -1 : undefined);
+  for (const p of middle) {
+    if (!p) continue;                                              // consecutive stars
+    const at = path.indexOf(p, pos);
+    if (at < 0) return false;
+    pos = at + p.length;
+  }
+  return !anchored || (path.endsWith(last) && path.length - last.length >= pos);
 };
 function robotsAllows(rules, path) {
   let best = null;

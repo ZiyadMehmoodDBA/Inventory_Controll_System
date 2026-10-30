@@ -183,6 +183,13 @@ const check = (n, c, x = '') => { (c ? pass++ : fail++); console.log(`${c ? 'PAS
     r = await call(A, 'GET', '/catalogue/jobs');
     check('the recent scrapes are listed newest first with counts', r.body.length >= 5 && r.body[0].id > r.body[1].id && r.body.every(x => typeof x.found === 'number'));
 
+    // ── two starts at the same instant: the one-scrape-per-organisation rule must hold ──
+    const pair = await Promise.all([call(B, 'POST', '/catalogue/jobs', { ...good, source_url: SHOP + '/slow' }), call(B, 'POST', '/catalogue/jobs', { ...good, source_url: SHOP + '/slow' })]);
+    const codes = pair.map(x => x.status).sort();
+    check('two simultaneous starts for one organisation: exactly one is accepted', codes[0] === 202 && codes[1] === 409, JSON.stringify(pair.map(x => [x.status, x.body && x.body.code])));
+    const okJob = pair.find(x => x.status === 202);
+    if (okJob) { await call(B, 'POST', '/catalogue/jobs/' + okJob.body.id + '/cancel'); await waitJob(B, okJob.body.id); }
+
     // ── tenant isolation ──
     r = await call(B, 'GET', `/catalogue/jobs/${jobId}`); check("another organisation cannot see this organisation's scrape", r.status === 404, JSON.stringify(r.body));
     r = await call(B, 'GET', `/catalogue/jobs/${jobId}/records`); check('nor its records', r.status === 404);

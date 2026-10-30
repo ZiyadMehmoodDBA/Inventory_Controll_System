@@ -92,3 +92,26 @@ test('every business type has a profile with a name field or tyre identity, and 
   assert.equal(o.fields.find(f => f.key === 'name').required, false);
   assert.equal(o.max_pages, 10);
 });
+
+test('SSRF guard: IPv6 forms that carry or reach an IPv4 address are refused', () => {
+  for (const u of ['http://[::ffff:7f00:1]/', 'http://[::10.0.0.1]/', 'http://[::a00:1]/', 'http://[64:ff9b::a00:1]/', 'http://[64:ff9b:1::a00:1]/', 'http://[2002:a00:1::]/', 'http://[2002:7f00:1::1]/',
+    'http://[2001::1]/', 'http://[2001:db8::1]/', 'http://[100::1]/', 'http://[fe80::1]/', 'http://[fec0::1]/', 'http://[fc00::1]/', 'http://[fd12:3456::1]/', 'http://[ff02::1]/', 'http://[::]/', 'http://[0:0:0:0:0:ffff:a9fe:a9fe]/'])
+    assert.throws(() => G.checkUrl(u), undefined, u);
+  assert.ok(G.checkUrl('http://[2606:4700:4700::1111]/'), 'a public IPv6 address is allowed');
+  assert.ok(G.checkUrl('http://[2a00:1450:4001::200e]/'));
+});
+
+test('robots.txt matching is linear: wildcards, anchors, and a hostile pattern cannot stall it', () => {
+  const r = G.parseRobots('User-agent: *\nDisallow: /a*b*c\nDisallow: /*.pdf$\nDisallow: /exact$\nAllow: /*?ok=1');
+  assert.equal(G.robotsAllows(r, '/a-x-b-y-c'), false);
+  assert.equal(G.robotsAllows(r, '/a-x-c-y-b'), true);
+  assert.equal(G.robotsAllows(r, '/doc.pdf'), false);
+  assert.equal(G.robotsAllows(r, '/doc.pdf?x=1'), true);
+  assert.equal(G.robotsAllows(r, '/exact'), false);
+  assert.equal(G.robotsAllows(r, '/exact/more'), true);
+  const hostile = G.parseRobots('User-agent: *\nDisallow: ' + '*a'.repeat(5000) + 'b$\n' + 'Disallow: /x\n'.repeat(2000));
+  const t0 = Date.now();
+  assert.equal(typeof G.robotsAllows(hostile, '/' + 'a'.repeat(5000)), 'boolean');
+  assert.ok(Date.now() - t0 < 500, 'hostile patterns are matched in linear time');
+  assert.ok(hostile.length <= 500, 'the number of rules is capped');
+});

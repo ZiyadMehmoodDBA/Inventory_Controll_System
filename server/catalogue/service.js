@@ -175,14 +175,20 @@ async function startJob(orgId, userId, body) {
   const active = [...running.values()];
   if (active.some(s => s.orgId === orgId)) throw new AppError('A catalogue scrape is already running for your organisation. Wait for it to finish or stop it.', 409, 'BUSY');
   if (active.length >= MAX_RUNNING) throw new AppError('The server is busy with other scrapes. Try again in a minute.', 409, 'BUSY');
+  // Take the slot now, before any await: two requests arriving together must not both pass the checks above.
+  const slot = { cancelled: false, orgId }, key = Symbol('catalogue-slot');
+  running.set(key, slot);
+  let job;
+  try {
   const pool = await getPool();
   const r = await pool.request().input('o', sql.Int, orgId).input('t', sql.NVarChar(30), body.business_type).input('n', sql.NVarChar(100), body.source_name)
     .input('u', sql.NVarChar(500), body.source_url).input('k', sql.NVarChar(500), (body.keywords || []).join(', ')).input('c', sql.NVarChar(100), body.category || null)
     .input('cfg', sql.NVarChar(sql.MAX), json(body.config)).input('by', sql.Int, userId)
     .query(`INSERT INTO catalogue_jobs (organization_id, business_type, source_name, source_url, keywords, category, config, created_by)
             OUTPUT INSERTED.* VALUES (@o, @t, @n, @u, @k, @c, @cfg, @by)`);
-  const job = r.recordset[0];
-  running.set(job.id, { cancelled: false, orgId });
+  job = r.recordset[0];
+  running.set(job.id, slot);
+  } finally { running.delete(key); }
   setImmediate(() => runJob(job.id));
   return job;
 }
