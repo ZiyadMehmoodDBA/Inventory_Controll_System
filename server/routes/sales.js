@@ -10,14 +10,14 @@ const { assertCompatibleLoad } = require('../utils/hazmat');
 const { nextDocNumber } = require('../utils/docNumber');
 const { assertTransactable } = require('../utils/itemMaster');
 const { getBusinessType } = require('../utils/businessTypes');
+const { AppError, handleError } = require('../utils/errors');
+const { validate } = require('../utils/validate');
+const S = require('../utils/schemas');
 
 // Stock problems (insufficient stock, unknown item) are client errors, not server faults.
 const sendError = (res, err) => err instanceof StockError
   ? res.status(err.status).json({ error: err.message, code: err.code, ...err.details })
-  : res.status(500).json({ error: err.message });
-
-// Every stock-tracked line needs a positive whole quantity (a negative one would add stock).
-const badQty = items => items.find(it => (it.tire_id || it.product_id) && (!Number.isInteger(Number(it.qty)) || Number(it.qty) <= 0));
+  : handleError(res, err, 'sales');
 
 router.get('/', async (req, res) => {
   try {
@@ -197,34 +197,35 @@ router.post('/', async (req, res) => {
   try {
     const {
       customer_id, date, items,
-      tax_rate = 15,
-      discount: orderDiscount = 0,   // order-level discount amount
-      status: requestedStatus = 'pending',
+      tax_rate,
+      discount: orderDiscount,       // order-level discount amount
+      status: requestedStatus,
       notes,
       // POS payment fields (optional; if present, payment captured in same tx)
-      payment_method, amount_paid = 0,
+      payment_method, amount_paid,
       cash_given, cash_amount, card_amount,
-    } = req.body;
+      location_id,
+    } = validate(req.body, S.SALE_BODY);
 
     // customer_id is optional — null means walk-in (no AR/ledger entry will be created)
     if (customer_id != null && customer_id !== '') {
       const own = await pool.request().input('c', sql.Int, customer_id).input('o', sql.Int, orgId).query('SELECT 1 AS ok FROM customers WHERE id = @c AND organization_id = @o');
       if (!own.recordset.length) return res.status(400).json({ error: 'Customer not found', code: 'INVALID_CUSTOMER' });
     }
-    if (!items?.length) return res.status(400).json({ error: 'At least one item is required' });
-    if (badQty(items)) return res.status(400).json({ error: 'Item quantities must be positive whole numbers' });
 
     // Per-line discount support: amount = qty * price * (1 - disc%)
     const lineSubtotal = items.reduce((s, it) => {
       const disc = parseFloat(it.discount || 0);
       return s + (it.qty * it.unit_price * (1 - disc / 100));
     }, 0);
+    if (orderDiscount > lineSubtotal + 0.005) throw new AppError('The order discount cannot exceed the order value', 400, 'DISCOUNT_TOO_LARGE');
     const subtotal = parseFloat(Math.max(0, lineSubtotal - parseFloat(orderDiscount || 0)).toFixed(2));
     const tax      = parseFloat((subtotal * (tax_rate / 100)).toFixed(2));
     const total    = parseFloat((subtotal + tax).toFixed(2));
 
     // POS: derive status from payment captured
     const paidAmt = parseFloat(amount_paid || 0);
+    if (paidAmt > total + 0.005) throw new AppError(`The amount paid (${paidAmt.toFixed(2)}) is more than the sale total (${total.toFixed(2)})`, 400, 'OVERPAYMENT');
     let finalStatus = requestedStatus;
     if (payment_method) {
       if (paidAmt >= total - 0.005)   finalStatus = 'paid';
@@ -237,7 +238,7 @@ router.post('/', async (req, res) => {
     await transaction.begin();
     await assertTransactable(transaction, orgId, items.map(it => it.tire_id), 'sale');
     // Optional: issue from a specific location instead of the branch default.
-    const issueLocation = req.body.location_id ? parseInt(req.body.location_id, 10) : null;
+    const issueLocation = location_id || null;
     if (issueLocation) {
       const loc = await assertLocationAccess(transaction, orgId, { userId: req.user?.userId, role: req.user?.role, branchId: req.user?.branchId ?? branchId }, issueLocation, 'issue');
       if (loc.branch_id !== branchId) throw new StockError('INVALID_LOCATION', 'That location belongs to another branch', 400);
@@ -360,10 +361,7 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id/status', async (req, res) => {
   try {
-    const { status } = req.body;
-    if (!['paid', 'partial', 'pending', 'overdue'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status value' });
-    }
+    const { status } = validate(req.body, S.STATUS_BODY);
     const { orgId, branchId } = getContext(req);
     const pool = await getPool();
 
@@ -372,6 +370,8 @@ router.patch('/:id/status', async (req, res) => {
       .input('id', sql.Int, req.params.id).input('orgId', sql.Int, orgId)
       .query('SELECT id, invoice_no, status FROM sales WHERE id = @id AND organization_id = @orgId');
     const beforeRow = beforeRes.recordset[0] || null;
+    if (!beforeRow) throw new AppError('Sale not found', 404, 'NOT_FOUND');
+    if (beforeRow.status === 'voided') throw new AppError('A voided sale cannot change status', 409, 'SALE_VOIDED');
 
     await pool.request()
       .input('id',    sql.Int,      req.params.id)
@@ -388,7 +388,7 @@ router.patch('/:id/status', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleError(res, err, 'sales');
   }
 });
 
@@ -502,18 +502,18 @@ router.delete('/:id', requireRole('org_admin'), async (req, res) => {
 
 router.post('/bulk', async (req, res) => {
   const { orgId, branchId } = getContext(req);
-  const { invoices } = req.body;
-  if (!Array.isArray(invoices) || invoices.length === 0) {
-    return res.status(400).json({ error: 'No invoices provided' });
-  }
+  let invoices;
+  try { ({ invoices } = validate(req.body, { invoices: S.BULK_LIST() })); } catch (e) { return handleError(res, e, 'sales'); }
   const pool   = await getPool();
   const prefix = await getSetting('invoice_prefix', 'INV', orgId);
   let inserted = 0;
   const errors = [];
 
-  for (const inv of invoices) {
+  for (const raw of invoices) {
     const transaction = new sql.Transaction(pool);
+    let inv = raw;
     try {
+      inv = validate(raw, S.BULK_INVOICE);
       const custRes = await pool.request()
         .input('name',  sql.NVarChar, String(inv.customer_name || '').trim())
         .input('orgId', sql.Int,      orgId)
@@ -595,7 +595,7 @@ router.post('/bulk', async (req, res) => {
       inserted++;
     } catch (err) {
       try { await transaction.rollback(); } catch {}
-      errors.push({ ref: inv.invoice_ref, message: err.message });
+      errors.push({ ref: inv?.invoice_ref ?? raw?.invoice_ref, message: err.message });
     }
   }
   res.json({ inserted, errors });

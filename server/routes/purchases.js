@@ -5,11 +5,14 @@ const { postMovement, StockError, MOVEMENT } = require('../utils/stock');
 const { nextDocNumber } = require('../utils/docNumber');
 const { assertTransactable } = require('../utils/itemMaster');
 const { assertLocationAccess } = require('../utils/access');
+const { AppError, handleError } = require('../utils/errors');
+const { validate } = require('../utils/validate');
+const S = require('../utils/schemas');
 
 // Stock problems are client errors (409/404), not server faults.
 const sendError = (res, err) => err instanceof StockError
   ? res.status(err.status).json({ error: err.message, code: err.code, ...err.details })
-  : res.status(500).json({ error: err.message });
+  : handleError(res, err, 'purchases');
 
 // Batch/lot, expiry and serial numbers typed on a receipt line. Serials arrive as an array or a comma/newline list.
 const parseSerials = v => (Array.isArray(v) ? v : String(v ?? '').split(/[\n,;]+/)).map(x => String(x).trim()).filter(Boolean);
@@ -23,7 +26,6 @@ const lineBatch = it => {
 const storedBatch = row => lineBatch({ batch_no: row.batch_no, expiry_date: row.expiry_date, mfg_date: row.mfg_date, unit_price: row.unit_price, serials: row.serials ? JSON.parse(row.serials) : [] });
 const batchCols = it => ({ batch_no: it.batch_no ? String(it.batch_no).slice(0, 60) : null, expiry_date: it.expiry_date || null, mfg_date: it.mfg_date || null, serials: parseSerials(it.serials).length ? JSON.stringify(parseSerials(it.serials)) : null });
 
-const badQty = items => items.find(it => (it.tire_id || it.product_id) && (!Number.isInteger(Number(it.qty)) || Number(it.qty) <= 0));
 const { getPool, getSetting, sql } = require('../db');
 const { getContext } = require('../context');
 
@@ -84,11 +86,10 @@ router.post('/', P.requirePermission('purchases.manage'), async (req, res) => {
   const pool        = await getPool();
   const transaction = new sql.Transaction(pool);
   try {
-    const { supplier_id, date, items, status = 'pending', notes, expected_date } = req.body;
-    const receiveLocation = req.body.location_id ? parseInt(req.body.location_id, 10) : null;
-    if (!supplier_id) return res.status(400).json({ error: 'Supplier is required' });
-    if (!items?.length) return res.status(400).json({ error: 'At least one item is required' });
-    if (badQty(items)) return res.status(400).json({ error: 'Item quantities must be positive whole numbers' });
+    const { supplier_id, date, items, status, notes, expected_date, location_id } = validate(req.body, S.PURCHASE_BODY);
+    const receiveLocation = location_id || null;
+    const own = await pool.request().input('s', sql.Int, supplier_id).input('o', sql.Int, orgId).query('SELECT 1 AS ok FROM suppliers WHERE id = @s AND organization_id = @o');
+    if (!own.recordset.length) throw new AppError('Supplier not found', 400, 'INVALID_SUPPLIER');
 
     const prefix = await getSetting('po_prefix', 'PO', orgId);
 
@@ -164,10 +165,7 @@ router.patch('/:id/status', P.requirePermission('purchases.manage', 'stock.recei
   const pool        = await getPool();
   const transaction = new sql.Transaction(pool);
   try {
-    const { status } = req.body;
-    if (!['pending', 'received', 'cancelled'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status value' });
-    }
+    const { status } = validate(req.body, S.PO_STATUS_BODY);
     await transaction.begin();
 
     const current = await new sql.Request(transaction)
@@ -270,18 +268,18 @@ router.delete('/:id', P.requirePermission('purchases.manage'), async (req, res) 
 
 router.post('/bulk', P.requirePermission('purchases.manage'), async (req, res) => {
   const { orgId, branchId } = getContext(req);
-  const { pos } = req.body;
-  if (!Array.isArray(pos) || pos.length === 0) {
-    return res.status(400).json({ error: 'No purchase orders provided' });
-  }
+  let pos;
+  try { ({ pos } = validate(req.body, { pos: S.BULK_LIST() })); } catch (e) { return handleError(res, e, 'purchases'); }
   const pool   = await getPool();
   const prefix = await getSetting('po_prefix', 'PO', orgId);
   let inserted = 0;
   const errors = [];
 
-  for (const po of pos) {
+  for (const raw of pos) {
     const transaction = new sql.Transaction(pool);
+    let po = raw;
     try {
+      po = validate(raw, S.BULK_PO);
       const suppRes = await pool.request()
         .input('name',  sql.NVarChar, String(po.supplier_name || '').trim())
         .input('orgId', sql.Int,      orgId)
@@ -364,7 +362,7 @@ router.post('/bulk', P.requirePermission('purchases.manage'), async (req, res) =
       inserted++;
     } catch (err) {
       try { await transaction.rollback(); } catch {}
-      errors.push({ ref: po.po_ref, message: err.message });
+      errors.push({ ref: po?.po_ref ?? raw?.po_ref, message: err.message });
     }
   }
   res.json({ inserted, errors });

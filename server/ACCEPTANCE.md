@@ -77,7 +77,8 @@ Code: `utils/dbBackup.js`; CLI `node scripts/backup.js <backup|log|drill|pitr|pr
 - Supplier in-full delivery is not measurable: a purchase order is received as a whole, not per line. On-time delivery and lead time are.
 - Order fulfillment accuracy is the share of orders not voided or returned. There is no pick/ship/back-order step to measure against.
 - Turnover and carrying cost use an opening value rebuilt from the ledger and the current valuation method; they are management figures, not a ledger close.
-- Remaining routes still validate by hand; only access, users and KPI routes use `utils/validate.js`.
+- Contracts declared with `utils/validate.js`: access, users, KPI, and (2026-10-30) the money routes: sales, purchases, payments and their Excel imports (`utils/schemas.js`, evidence smoke20). Still validated by hand: inventory, customers, suppliers, services, ledger, organisations, settings. Next in line: inventory adjustments and transfers.
+- Money-route rules enforced beyond shape: quantities are whole numbers from 1, prices and amounts are 0 to 1e9, a sale cannot be created voided, an order discount cannot exceed the order, a till payment cannot exceed the total, a payment cannot exceed the balance due (409 OVERPAYMENT), voided sales and cancelled purchases take no payment, a purchase supplier must belong to the organisation, and payments lock the document row so two at once cannot both pass.
 - Data imports (Excel and catalog) are covered by smoke/smoke2 for good and bad rows; very large files are untested.
 - Self-service password reset is disabled until an email service exists.
 - Browser suites: `npm run test:e2e` (tests/run-e2e.cjs) warms Vite, runs each suite on a fresh API and retries a failed suite once; a pass-on-retry is reported as FLAKY, never as green.

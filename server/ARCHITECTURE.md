@@ -6,7 +6,7 @@ The inventory module is part of the ERP (same login, organisations, branches, us
 |---|---|
 | Business rules in the backend | `utils/stock.js` (ledger, costing, approval rules), `utils/permissions.js`, `utils/insights.js`; routes only call them |
 | Authentication and role-based authorization | `middleware/auth` (JWT) → `utils/permissions.js` `attachAccess` (live role/permissions from DB) → `requirePermission(...)` per route |
-| Validated API contracts | `utils/validate.js` (`v.string/number/int/bool/enum/array`, `validate(body, schema)`); used by `/api/access`, `/api/users`. New endpoints should declare their contract the same way |
+| Validated API contracts | `utils/validate.js` (`v.string/number/int/bool/enum/array/object/shape/custom`, `validate(body, schema)`; shared money contracts in `utils/schemas.js`); used by `/api/access`, `/api/users`, KPIs, `/api/sales`, `/api/purchases`, `/api/payments`. New endpoints should declare their contract the same way |
 | Centralized error handling | `utils/errors.js`: `AppError`, `ValidationError`, `handleError`, `errorMiddleware` (registered last in `index.js`). Every error is `{ error, code, ...details }`; unexpected errors are logged and answered with a generic 500 |
 | Transactions and concurrency | stock writes run in one SQL transaction with row locks (`UPDLOCK`/`HOLDLOCK`) in `utils/stock.js`; deadlock victims return `409 CONFLICT_RETRY`; `Idempotency-Key` header makes a repeated request apply once |
 | Append-only history | migration `0001`/`0003`: triggers make `audit_logs` and `stock_movements` reject UPDATE/DELETE (only `stock_movements.unit_cost` may be filled in by costing, `location_id` only back-filled once). Corrections are new, opposing movements |

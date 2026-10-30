@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "node --test utils/stock.test.js reporting/reporting.test.js",
+    "test": "node --test utils/stock.test.js utils/validate.test.js reporting/reporting.test.js",
     "test:integration": "node tests/run-integration.cjs",
     "backup": "node scripts/backup.js backup",
     "backup:drill": "node scripts/backup.js drill",

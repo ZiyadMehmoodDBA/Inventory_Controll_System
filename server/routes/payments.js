@@ -2,6 +2,9 @@ const express = require('express');
 const router  = express.Router();
 const { getPool, sql } = require('../db');
 const { getContext }   = require('../context');
+const { AppError, handleError } = require('../utils/errors');
+const { validate } = require('../utils/validate');
+const S = require('../utils/schemas');
 const { requireRole }   = require('../middleware/auth');
 const P = require('../utils/permissions');
 
@@ -11,22 +14,20 @@ router.post('/sale', async (req, res) => {
   const pool        = await getPool();
   const transaction = new sql.Transaction(pool);
   try {
-    const { sale_id, amount, payment_date, payment_method = 'cash', reference_no = '', notes = '' } = req.body;
-    if (!sale_id || !amount) return res.status(400).json({ error: 'sale_id and amount are required' });
-    if (Number(amount) <= 0) return res.status(400).json({ error: 'Amount must be greater than 0' });
+    const { sale_id, amount, payment_date, payment_method, reference_no, notes } = validate(req.body, S.SALE_PAYMENT_BODY);
 
     await transaction.begin();
 
     const saleRes = await new sql.Request(transaction)
       .input('id',    sql.Int, sale_id)
       .input('orgId', sql.Int, orgId)
-      .query('SELECT id, total, amount_paid, status, customer_id, invoice_no FROM sales WHERE id = @id AND organization_id = @orgId');
-    if (!saleRes.recordset.length) {
-      await transaction.rollback();
-      return res.status(404).json({ error: 'Sale not found' });
-    }
+      .query('SELECT id, total, amount_paid, status, customer_id, invoice_no FROM sales WITH (UPDLOCK, HOLDLOCK) WHERE id = @id AND organization_id = @orgId');   // locked: two payments at once must not both read the same balance
+    if (!saleRes.recordset.length) throw new AppError('Sale not found', 404, 'NOT_FOUND');
 
     const sale        = saleRes.recordset[0];
+    if (sale.status === 'voided') throw new AppError('A voided sale cannot take a payment', 409, 'SALE_VOIDED');
+    const balanceDue  = parseFloat((Number(sale.total) - Number(sale.amount_paid || 0)).toFixed(2));
+    if (amount > balanceDue + 0.005) throw new AppError(`The payment (${amount.toFixed(2)}) is more than the balance due (${balanceDue.toFixed(2)})`, 409, 'OVERPAYMENT', { balance_due: balanceDue });
     const newPaid     = parseFloat((Number(sale.amount_paid || 0) + Number(amount)).toFixed(2));
     const saleTotal   = Number(sale.total);
     const payDate     = payment_date || new Date().toISOString().slice(0, 10);
@@ -82,7 +83,7 @@ router.post('/sale', async (req, res) => {
     });
   } catch (err) {
     try { await transaction.rollback(); } catch {}
-    res.status(500).json({ error: err.message });
+    handleError(res, err, 'payments');
   }
 });
 
@@ -158,22 +159,20 @@ router.post('/purchase', P.requirePermission('purchases.manage'), async (req, re
   const pool        = await getPool();
   const transaction = new sql.Transaction(pool);
   try {
-    const { purchase_id, amount, payment_date, payment_method = 'cash', reference_no = '', notes = '' } = req.body;
-    if (!purchase_id || !amount) return res.status(400).json({ error: 'purchase_id and amount are required' });
-    if (Number(amount) <= 0) return res.status(400).json({ error: 'Amount must be greater than 0' });
+    const { purchase_id, amount, payment_date, payment_method, reference_no, notes } = validate(req.body, S.PURCHASE_PAYMENT_BODY);
 
     await transaction.begin();
 
     const purchRes = await new sql.Request(transaction)
       .input('id',    sql.Int, purchase_id)
       .input('orgId', sql.Int, orgId)
-      .query('SELECT id, total, amount_paid, status, supplier_id, po_no FROM purchases WHERE id = @id AND organization_id = @orgId');
-    if (!purchRes.recordset.length) {
-      await transaction.rollback();
-      return res.status(404).json({ error: 'Purchase not found' });
-    }
+      .query('SELECT id, total, amount_paid, status, supplier_id, po_no FROM purchases WITH (UPDLOCK, HOLDLOCK) WHERE id = @id AND organization_id = @orgId');
+    if (!purchRes.recordset.length) throw new AppError('Purchase not found', 404, 'NOT_FOUND');
 
     const purch   = purchRes.recordset[0];
+    if (purch.status === 'cancelled') throw new AppError('A cancelled purchase order cannot take a payment', 409, 'PURCHASE_CANCELLED');
+    const balanceDue = parseFloat((Number(purch.total) - Number(purch.amount_paid || 0)).toFixed(2));
+    if (amount > balanceDue + 0.005) throw new AppError(`The payment (${amount.toFixed(2)}) is more than the balance due (${balanceDue.toFixed(2)})`, 409, 'OVERPAYMENT', { balance_due: balanceDue });
     const newPaid = parseFloat((Number(purch.amount_paid || 0) + Number(amount)).toFixed(2));
     const payDate = payment_date || new Date().toISOString().slice(0, 10);
 
@@ -222,7 +221,7 @@ router.post('/purchase', P.requirePermission('purchases.manage'), async (req, re
     });
   } catch (err) {
     try { await transaction.rollback(); } catch {}
-    res.status(500).json({ error: err.message });
+    handleError(res, err, 'payments');
   }
 });
 

@@ -32,6 +32,12 @@ const v = {
   bool: (o = {}) => rule('bool', (x, k) => (typeof x === 'boolean' ? [null, x] : [`${k} must be true or false`]), o),
   enum: (values, o = {}) => rule('enum', (x, k) => (values.includes(x) ? [null, x] : [`${k} must be one of: ${values.join(', ')}`]), o),
   object: (o = {}) => rule('object', (x, k) => (x && typeof x === 'object' && !Array.isArray(x) ? [null, x] : [`${k} must be an object`]), o),
+  // A nested object checked against its own schema (a document line); the first problem is reported with the path to it.
+  shape: (schema, o = {}) => rule('shape', (x, k) => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return [`${k} must be an object`];
+    try { return [null, validate(x, schema)]; } catch (e) { if (e instanceof ValidationError) return [`${k}: ${e.message}`]; throw e; }
+  }, o),
+  custom: (fn, o = {}) => rule('custom', fn, o),
   array: (item, o = {}) => rule('array', (x, k) => {
     if (!Array.isArray(x)) return [`${k} must be a list`];
     if (o.max != null && x.length > o.max) return [`${k} may hold at most ${o.max} entries`];
