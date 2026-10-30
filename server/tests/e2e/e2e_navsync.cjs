@@ -46,6 +46,35 @@ const body = async ({ page, check, SHOTS, label }) => {
   check('every sidebar entry opens its own screen and is highlighted', wrong.length === 0, wrong.join('; '));
   await page.screenshot({ path: path.join(SHOTS, `e2e-${label}-nav-desktop.png`) });
 
+  // ── header dropdowns close on an outside press, on Escape, and one at a time ──
+  const userBtn = page.getByRole('button', { name: 'User menu' }), notifBtn = page.getByRole('button', { name: 'Notifications' });
+  const userOpen = async () => (await page.locator('header button:has-text("Change Password")').count()) > 0;
+  const notifOpen = async () => (await page.locator('text=Tap an alert to go to the page').count()) > 0;
+  await userBtn.click();
+  check('user menu opens', await userOpen());
+  await page.locator('main').click({ position: { x: 300, y: 300 } });
+  check('user menu closes on a click in the page', !(await userOpen()));
+  await userBtn.click();
+  await page.locator('aside button:has-text("Customers")').first().click();
+  await page.waitForTimeout(300);
+  check('user menu closes on a click in the sidebar (and the click still navigates)', !(await userOpen()) && /^Customers$/.test((await page.locator('header h2').first().innerText()).trim()));
+  await userBtn.click();
+  await page.keyboard.press('Escape');
+  check('user menu closes on Escape', !(await userOpen()));
+  await userBtn.click();
+  await userBtn.click();
+  check('user menu toggles closed from its own button', !(await userOpen()));
+  await userBtn.click();
+  await notifBtn.click();
+  check('opening notifications closes the user menu', (await notifOpen()) && !(await userOpen()));
+  await page.locator('header h2').first().click();
+  check('notifications close on an outside click', !(await notifOpen()));
+  await userBtn.click();
+  await page.locator('header button:has-text("Change Password")').click();
+  check('choosing a menu item closes the menu', !(await userOpen()));
+  await page.keyboard.press('Escape');
+  await page.locator('div.fixed button:has-text("Cancel"), div.fixed button[aria-label="Close"]').first().click({ timeout: 3000 }).catch(() => {});
+
   // ── admin, phone ──
   await page.setViewportSize({ width: 400, height: 800 });
   await page.waitForTimeout(500);

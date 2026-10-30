@@ -2,6 +2,7 @@ import { Bell, Search, LogOut, ChevronDown, Menu, AlertCircle, Clock, ChevronRig
 import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { usePermissions } from '../lib/permissions';
+import { useDismiss } from '../lib/useDismiss';
 
 export interface AppNotification {
   id: string;
@@ -43,6 +44,8 @@ export default function Header({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
+  const notifRef = useDismiss<HTMLDivElement>(notifOpen, () => setNotifOpen(false));
+  const userRef  = useDismiss<HTMLDivElement>(dropdownOpen, () => setDropdownOpen(false));
   const openNotif = () => { setNotifOpen(v => !v); setDropdownOpen(false); };
   const openUser  = () => { setDropdownOpen(v => !v); setNotifOpen(false); };
 
@@ -75,22 +78,26 @@ export default function Header({
           />
         </div>
 
-        {/* Notifications */}
+        {/* Branch switcher: organisation administrators with more than one branch */}
         {branches.length > 1 && (
-        <select
-          aria-label="Branch"
-          value={branchId}
-          onChange={e => onBranchChange?.(Number(e.target.value))}
-          className="text-xs font-semibold border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 max-w-[9rem]"
-        >
-          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-      )}
-      <div className="relative">
+          <select
+            aria-label="Branch"
+            value={branchId}
+            onChange={e => onBranchChange?.(Number(e.target.value))}
+            className="text-xs font-semibold border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 max-w-[9rem]"
+          >
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
+
+        {/* Notifications */}
+        <div className="relative" ref={notifRef}>
           <button
             onClick={openNotif}
             className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
             aria-label="Notifications"
+            aria-haspopup="true"
+            aria-expanded={notifOpen}
           >
             <Bell size={18} />
             {notifications.length > 0 ? (
@@ -104,7 +111,6 @@ export default function Header({
 
           {notifOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
               <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
@@ -168,9 +174,12 @@ export default function Header({
         </div>
 
         {/* User dropdown */}
-        <div className="relative pl-2 sm:pl-3 border-l border-slate-200">
+        <div className="relative pl-2 sm:pl-3 border-l border-slate-200" ref={userRef}>
           <button
             onClick={openUser}
+            aria-label="User menu"
+            aria-haspopup="true"
+            aria-expanded={dropdownOpen}
             className="flex items-center gap-1.5 sm:gap-2 hover:bg-slate-50 rounded-xl px-1.5 sm:px-2 py-1.5 transition-colors"
           >
             <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 ring-2 ring-teal-100">
@@ -185,7 +194,6 @@ export default function Header({
 
           {dropdownOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
               <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <p className="text-sm font-bold text-slate-900">{user.name}</p>
