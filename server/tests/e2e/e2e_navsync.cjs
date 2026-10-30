@@ -121,4 +121,6 @@ const body = async ({ page, check, SHOTS, label }) => {
   await page.locator('input[type="password"]').first().waitFor({ timeout: 10000 });
   const left = await page.evaluate(() => ({ s: localStorage.getItem('tunegen_settings_v1'), o: localStorage.getItem('orgId'), b: localStorage.getItem('branchId'), t: localStorage.getItem('tunegen_at') }));
   check('sign-out clears cached settings, organisation, branch and token', !left.s && !left.o && !left.b && !left.t, JSON.stringify(left));
+  const loginText = await page.locator('body').innerText();
+  check('the login page shows no Google sign-in and no "or continue with email" divider', !/Google/i.test(loginText) && !/or continue with email/i.test(loginText) && (await page.locator('input[type="password"]').count()) > 0, loginText.slice(0, 200));
 };
