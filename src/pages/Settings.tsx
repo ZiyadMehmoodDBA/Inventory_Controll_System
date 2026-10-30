@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Building2, FileText, Tag, Save, Loader2, CheckCircle, AlertCircle,
-  Package, Wrench, Users, Server, Globe, ShieldCheck,
+  Package, Wrench, Users, Server, Globe, ShieldCheck, DatabaseBackup,
 } from 'lucide-react';
 import { api } from '../api/client';
 
@@ -13,12 +13,14 @@ import ServicesTab     from './settings/ServicesTab';
 import UsersTab        from './settings/UsersTab';
 import RolesTab        from './settings/RolesTab';
 import SystemInfoTab   from './settings/SystemInfoTab';
+import BackupsTab      from './settings/BackupsTab';
 import CatalogScraperTab from './settings/CatalogScraperTab';
 import { useModules, useTerms } from '../lib/businessTypes';
+import { usePermissions } from '../lib/permissions';
 
-type Tab = 'company' | 'defaults' | 'products' | 'lookups' | 'services' | 'users' | 'roles' | 'system' | 'catalog';
+type Tab = 'company' | 'defaults' | 'products' | 'lookups' | 'services' | 'users' | 'roles' | 'system' | 'catalog' | 'backups';
 
-const ALL_TABS: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
+const ALL_TABS: { id: Tab; label: string; icon: React.ElementType; adminOnly?: boolean; platformOnly?: boolean }[] = [
   { id: 'company',  label: 'Company Profile',       icon: Building2 },
   { id: 'defaults', label: 'Invoice & PO Defaults',  icon: FileText },
   { id: 'products', label: 'Products',               icon: Package  },
@@ -28,9 +30,10 @@ const ALL_TABS: { id: Tab; label: string; icon: React.ElementType; adminOnly?: b
   { id: 'roles',    label: 'Roles & permissions',    icon: ShieldCheck },
   { id: 'catalog',  label: 'Catalog Scraper',        icon: Globe,   adminOnly: true },
   { id: 'system',   label: 'System',                 icon: Server,  adminOnly: true },
+  { id: 'backups',  label: 'Backups',                icon: DatabaseBackup, platformOnly: true },
 ];
 
-const AUTO_SAVE_TABS: Tab[] = ['lookups', 'products', 'services', 'users', 'roles', 'system', 'catalog'];
+const AUTO_SAVE_TABS: Tab[] = ['lookups', 'products', 'services', 'users', 'roles', 'system', 'catalog', 'backups'];
 
 function getCurrentUserRole(): string | null {
   try {
@@ -45,7 +48,8 @@ export default function Settings() {
   const isAdmin = getCurrentUserRole() === 'org_admin';
   const modules = useModules();
   const terms   = useTerms();
-  const TABS    = ALL_TABS.filter(t => (!t.adminOnly || isAdmin) && (t.id !== 'catalog' || modules.tyreCatalog) && (t.id !== 'lookups' || terms.tyre));
+  const { platformAdmin } = usePermissions();
+  const TABS    = ALL_TABS.filter(t => (!t.adminOnly || isAdmin) && (!t.platformOnly || platformAdmin) && (t.id !== 'catalog' || modules.tyreCatalog) && (t.id !== 'lookups' || terms.tyre));
 
   const [tab, setTab]           = useState<Tab>('company');
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -90,7 +94,7 @@ export default function Settings() {
   const isAutoSaveTab = AUTO_SAVE_TABS.includes(tab);
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+    <div className={`p-4 sm:p-6 mx-auto ${tab === 'backups' ? 'max-w-6xl' : 'max-w-4xl'}`}>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-slate-900">Settings</h1>
         <p className="text-sm text-slate-400 mt-0.5">Configure company details, invoice defaults, products catalog, and lookup tables</p>
@@ -129,6 +133,7 @@ export default function Settings() {
           {tab === 'roles'    && <RolesTab />}
           {tab === 'catalog'  && isAdmin && modules.tyreCatalog && <CatalogScraperTab />}
           {tab === 'system'   && isAdmin && <SystemInfoTab />}
+          {tab === 'backups'  && platformAdmin && <BackupsTab />}
         </div>
 
         {!isAutoSaveTab && (

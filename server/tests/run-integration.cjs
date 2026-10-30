@@ -25,7 +25,7 @@ async function waitForApi() {
 (async () => {
   let failed = 0;
   for (const name of suites) {
-    const api = spawn(process.execPath, ['index.js'], { cwd: root, env: { ...process.env, PORT }, stdio: 'ignore' });
+    const api = spawn(process.execPath, ['index.js'], { cwd: root, env: { ...process.env, PORT, BACKUP_SCHEDULER: 'off' }, stdio: 'ignore' });
     try {
       await waitForApi();
       const r = spawnSync(process.execPath, [path.join(dir, `${name}.cjs`)], { cwd: root, encoding: 'utf8', timeout: 600000 });

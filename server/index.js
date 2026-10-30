@@ -13,6 +13,7 @@ const { duplicateGuard } = require('./middleware/duplicateGuard');
 const { initCatalogScraperJob } = require('./jobs/catalogScraper');
 const { initDemoCleanupJob }    = require('./jobs/demoCleanup');
 const { initBackupJob }         = require('./jobs/backupJob');
+const { requirePlatformAdmin }   = require('./utils/platform');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -119,6 +120,7 @@ app.use('/api/organizations', require('./routes/organizations'));
 app.use('/api/branches',      require('./routes/branches'));
 app.use('/api/users',         require('./routes/users'));
 app.use('/api/access',        require('./routes/access'));
+app.use('/api/backups',       requirePlatformAdmin, require('./routes/backups'));   // database-wide: platform operators only
 app.use('/api/audit',         require('./routes/audit'));
 app.use('/api/profile',       require('./routes/profile'));
 app.use('/api/catalog',       requireModule('tyreCatalog'), require('./routes/catalog'));

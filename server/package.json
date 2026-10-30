@@ -6,14 +6,15 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "node --test utils/stock.test.js utils/validate.test.js reporting/reporting.test.js",
+    "test": "node --test utils/stock.test.js utils/validate.test.js utils/cronNext.test.js reporting/reporting.test.js",
     "test:integration": "node tests/run-integration.cjs",
     "backup": "node scripts/backup.js backup",
     "backup:drill": "node scripts/backup.js drill",
     "test:e2e": "node tests/run-e2e.cjs",
     "backup:pitr": "node scripts/backup.js pitr",
     "backup:status": "node scripts/backup.js status",
-    "backup:check": "node scripts/backup.js check"
+    "backup:check": "node scripts/backup.js check",
+    "platform-admin": "node scripts/grant-platform-admin.js"
   },
   "devDependencies": {
     "jest": "^29.7.0"

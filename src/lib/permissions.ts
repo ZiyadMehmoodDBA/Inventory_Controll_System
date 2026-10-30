@@ -3,8 +3,8 @@ import { api } from '../api/client';
 
 // What the signed-in user may do, as reported by the API (GET /access/me). The screens use it to show or hide actions;
 // the API enforces every permission itself, so hiding an action here is a convenience and never the protection.
-interface Access { loaded: boolean; role: string; roleName: string; permissions: Set<string>; approvalLimit: number | null }
-const EMPTY: Access = { loaded: false, role: '', roleName: '', permissions: new Set(), approvalLimit: null };
+interface Access { loaded: boolean; role: string; roleName: string; permissions: Set<string>; approvalLimit: number | null; platformAdmin: boolean }
+const EMPTY: Access = { loaded: false, role: '', roleName: '', permissions: new Set(), approvalLimit: null, platformAdmin: false };
 let state: Access = EMPTY;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach(l => l());
@@ -12,7 +12,7 @@ const emit = () => listeners.forEach(l => l());
 export async function loadAccess(): Promise<void> {
   try {
     const me = await api.access.me();
-    state = { loaded: true, role: me.role, roleName: me.role_name, permissions: new Set(me.permissions), approvalLimit: me.approval_limit };
+    state = { loaded: true, role: me.role, roleName: me.role_name, permissions: new Set(me.permissions), approvalLimit: me.approval_limit, platformAdmin: !!me.platform_admin };
   } catch {
     return;          // keep what we had (or stay "not loaded", where nothing is hidden); the API enforces access either way
   }

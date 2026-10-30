@@ -485,8 +485,17 @@ export const api = {
     resetPassword: (id: number, password: string) =>
       request<any>(`/users/${id}/password`, { method: 'PATCH', body: JSON.stringify({ password }) }),
   },
+  backups: {
+    overview:   ()                          => request<any>('/backups/overview'),
+    runs:       (q: { kind?: string; ok?: string; limit?: number; offset?: number } = {}) => request<{ rows: any[]; total: number }>('/backups/runs?' + new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)])).toString()),
+    saveConfig: (b: any)                    => request<{ ok: boolean; warning: string | null; config: any }>('/backups/config', { method: 'PUT', body: JSON.stringify(b) }),
+    createJob:  (b: any)                    => request<any>('/backups/jobs', { method: 'POST', body: JSON.stringify(b) }),
+    updateJob:  (id: number, b: any)        => request<any>(`/backups/jobs/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
+    deleteJob:  (id: number)                => request<any>(`/backups/jobs/${id}`, { method: 'DELETE' }),
+    runJob:     (id: number)                => request<any>(`/backups/jobs/${id}/run`, { method: 'POST', body: '{}' }),
+  },
   access: {
-    me:          ()                       => request<{ role: string; role_name: string; permissions: string[]; approval_limit: number | null }>('/access/me'),
+    me:          ()                       => request<{ role: string; role_name: string; permissions: string[]; approval_limit: number | null; platform_admin?: boolean }>('/access/me'),
     catalogue:   ()                       => request<{ permissions: { code: string; group: string; label: string; description: string; sensitive: boolean }[]; base_roles: { key: string; name: string }[] }>('/access/permissions'),
     roles:       ()                       => request<any[]>('/access/roles'),
     createRole:  (b: any)                 => request<any>('/access/roles', { method: 'POST', body: JSON.stringify(b) }),

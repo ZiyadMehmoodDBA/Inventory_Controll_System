@@ -5,6 +5,7 @@ const { getPool, sql } = require('../db');
 const { getContext }   = require('../context');
 const { writeAudit }   = require('../utils/audit');
 const P = require('../utils/permissions');
+const { isPlatformAdmin } = require('../utils/platform');
 const { AppError, handleError } = require('../utils/errors');
 const { v, validate } = require('../utils/validate');
 const A = require('../utils/stock');
@@ -14,8 +15,10 @@ const fail = (res, err) => handleError(res, err, 'access');
 const bad = (message, status = 400, code = 'INVALID_REQUEST') => new AppError(message, status, code);
 
 // The signed-in user: role, permissions and approval limit (what the screens use to show or hide actions).
-router.get('/me', (req, res) => {
-  res.json({ role: req.user.role, role_name: req.user.roleName, permissions: req.user.role === 'org_admin' ? P.ALL : [...req.user.perms], approval_limit: req.user.approvalLimit ?? null });
+router.get('/me', async (req, res) => {
+  let platform_admin = false;
+  try { platform_admin = await isPlatformAdmin(req.user); } catch { /* a failed lookup only hides the backup console */ }
+  res.json({ role: req.user.role, role_name: req.user.roleName, permissions: req.user.role === 'org_admin' ? P.ALL : [...req.user.perms], approval_limit: req.user.approvalLimit ?? null, platform_admin });
 });
 
 const manage = P.requirePermission('roles.manage', 'users.manage');

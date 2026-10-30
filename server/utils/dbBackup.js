@@ -6,6 +6,7 @@
 //                     SQL Server Standard has no MIRROR TO, so the full backup is simply taken twice (the second is COPY_ONLY and does not disturb the chain).
 //                     A backup that exists only on the database host is lost with the host.
 const { getPool, sql } = require('../db');
+const Cfg = require('./backupConfig');
 
 const stamp = () => new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
 const q = s => `[${String(s).replace(/]/g, ']]')}]`;
@@ -14,7 +15,8 @@ const join = (dir, file) => `${dir.replace(/[\\/]+$/, '')}\\${file}`;
 const dbName = async pool => (await pool.request().query('SELECT DB_NAME() AS n')).recordset[0].n;
 
 async function backupDir(pool) {
-  if (process.env.BACKUP_DIR) return process.env.BACKUP_DIR;
+  const cfgDir = (await Cfg.load()).backup_dir.value;
+  if (cfgDir) return cfgDir;
   const r = (await pool.request().query("SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS NVARCHAR(400)) AS p, CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS NVARCHAR(400)) AS d")).recordset[0];
   if (r.p) return r.p;
   if (r.d) return join(r.d.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]+$/, ''), 'Backup');
@@ -23,17 +25,18 @@ async function backupDir(pool) {
 const dataDir = async pool => (await pool.request().query("SELECT CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS NVARCHAR(400)) AS p")).recordset[0].p;
 
 /** Run `fn`, record the outcome in backup_runs, rethrow on failure. */
-async function recorded(kind, fn) {
+async function recorded(kind, fn, opts = {}) {
   const pool = await getPool();
   const started = new Date();
   let out;
   try { out = await fn(pool); } catch (e) {
-    await pool.request().input('k', sql.NVarChar(30), kind).input('s', sql.DateTime2, started).input('m', sql.NVarChar(sql.MAX), String(e.message).slice(0, 3000))
-      .query('INSERT INTO backup_runs (kind, started_at, finished_at, ok, message) VALUES (@k, @s, SYSUTCDATETIME(), 0, @m)').catch(() => {});
+    await pool.request().input('k', sql.NVarChar(30), kind).input('s', sql.DateTime2, started).input('m', sql.NVarChar(sql.MAX), String(e.message).slice(0, 3000)).input('j', sql.Int, opts.jobId ?? null).input('src', sql.NVarChar(10), opts.source || 'cli')
+      .query('INSERT INTO backup_runs (kind, started_at, finished_at, ok, message, job_id, source) VALUES (@k, @s, SYSUTCDATETIME(), 0, @m, @j, @src)').catch(() => {});
     throw e;
   }
   await pool.request().input('k', sql.NVarChar(30), kind).input('s', sql.DateTime2, started).input('f', sql.NVarChar(500), out.file ?? null).input('m', sql.NVarChar(sql.MAX), String(out.message ?? '').slice(0, 3000))
-    .query('INSERT INTO backup_runs (kind, started_at, finished_at, ok, [file], message) VALUES (@k, @s, SYSUTCDATETIME(), 1, @f, @m)');
+    .input('j', sql.Int, opts.jobId ?? null).input('src', sql.NVarChar(10), opts.source || 'cli')
+    .query('INSERT INTO backup_runs (kind, started_at, finished_at, ok, [file], message, job_id, source) VALUES (@k, @s, SYSUTCDATETIME(), 1, @f, @m, @j, @src)');
   return out;
 }
 
@@ -44,20 +47,21 @@ async function takeFull(pool, db, dir, copyOnly) {
   return file;
 }
 
-async function backupFull() {
+async function backupFull(opts = {}) {
   return recorded('full', async pool => {
     const db = await dbName(pool);
     const file = await takeFull(pool, db, await backupDir(pool), false);
     let message = 'verified';
-    if (process.env.OFFSITE_BACKUP_DIR) {
-      const off = await takeFull(pool, db, process.env.OFFSITE_BACKUP_DIR, true);
+    const offsite = (await Cfg.load()).offsite_dir.value;
+    if (offsite) {
+      const off = await takeFull(pool, db, offsite, true);
       message = `verified; off-host copy ${off}`;
-    } else message = 'verified; NO off-host copy configured (OFFSITE_BACKUP_DIR)';
+    } else message = 'verified; NO off-host copy configured (set the off-host folder in Settings > Backups)';
     return { file, message };
-  });
+  }, opts);
 }
 
-async function backupLog() {
+async function backupLog(opts = {}) {
   return recorded('log', async pool => {
     const db = await dbName(pool);
     const rm = (await pool.request().query('SELECT recovery_model_desc AS m FROM sys.databases WHERE name = DB_NAME()')).recordset[0].m;
@@ -68,7 +72,7 @@ async function backupLog() {
     await pool.request().batch(`BACKUP LOG ${q(db)} TO DISK = ${lit(file)} WITH COMPRESSION, CHECKSUM, INIT`);
     await pool.request().batch(`RESTORE VERIFYONLY FROM DISK = ${lit(file)} WITH CHECKSUM`);
     return { file, message: 'verified' };
-  });
+  }, opts);
 }
 
 // Figures that must survive a restore, with the table they come from.
@@ -116,7 +120,7 @@ const moveClause = async (pool, file, copy) => {
 const dropDb = (pool, name) => pool.request().batch(`IF DB_ID(${lit(name)}) IS NOT NULL BEGIN ALTER DATABASE ${q(name)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ${q(name)} END`);
 
 /** Restore the newest full backup into a scratch database, check integrity and that the figures match live, drop it. Returns { ok, lines }. */
-async function restoreDrill({ keep = false } = {}) {
+async function restoreDrill({ keep = false } = {}, opts = {}) {
   const lines = []; let failed = 0;
   const res = await recorded('drill', async pool => {
     const db = await dbName(pool);
@@ -134,7 +138,7 @@ async function restoreDrill({ keep = false } = {}) {
     } finally { if (!keep) { try { await dropDb(pool, copy); lines.push(`scratch database ${copy} dropped`); } catch (e) { failed++; lines.push(`could not drop ${copy}: ${e.message}`); } } }
     if (failed) throw new Error(`restore drill failed: ${lines.filter(l => /^FAIL|ERRORS/.test(l)).join('; ')}`);
     return { file, message: lines.join(' | ') };
-  }).catch(e => ({ error: e }));
+  }, opts).catch(e => ({ error: e }));
   return { ok: !res.error, lines, error: res.error?.message };
 }
 
@@ -145,7 +149,7 @@ async function restoreDrill({ keep = false } = {}) {
  *  2. Production chain: the newest full backup plus every later log backup of TuneGENDB is restored into a scratch copy up to the last log
  *     backup's time; the figures must equal what the live database held at that moment (no writes since => equal, else live >= restored).
  */
-async function pitrDrill() {
+async function pitrDrill(opts = {}) {
   const lines = []; let failed = 0;
   const res = await recorded('pitr', async pool => {
     const db = await dbName(pool);
@@ -203,18 +207,21 @@ async function pitrDrill() {
     }
     if (failed) throw new Error(`point-in-time recovery drill failed: ${lines.filter(l => /^FAIL/.test(l)).join('; ')}`);
     return { file: full.bak_file, message: lines.join(' | ') };
-  }).catch(e => ({ error: e }));
+  }, opts).catch(e => ({ error: e }));
   return { ok: !res.error, lines, error: res.error?.message };
 }
 
-async function prune(days) {
-  const pool = await getPool();
-  const keep = Number(days || process.env.BACKUP_RETENTION_DAYS || 14);
-  const cut = new Date(Date.now() - keep * 86400000);
-  for (const dir of [await backupDir(pool), process.env.OFFSITE_BACKUP_DIR].filter(Boolean))
-    for (const ext of ['bak', 'trn'])
-      await pool.request().input('d', sql.NVarChar(400), dir).input('e', sql.NVarChar(10), ext).input('cut', sql.DateTime, cut).query('EXEC master.dbo.xp_delete_file 0, @d, @e, @cut, 0');
-  return `removed .bak/.trn files older than ${keep} days`;
+async function prune(days, opts = {}) {
+  const r = await recorded('prune', async pool => {
+    const cfg = await Cfg.load();
+    const keep = Number(days || cfg.retention_days.value || 14);
+    const cut = new Date(Date.now() - keep * 86400000);
+    for (const dir of [await backupDir(pool), cfg.offsite_dir.value].filter(Boolean))
+      for (const ext of ['bak', 'trn'])
+        await pool.request().input('d', sql.NVarChar(400), dir).input('e', sql.NVarChar(10), ext).input('cut', sql.DateTime, cut).query('EXEC master.dbo.xp_delete_file 0, @d, @e, @cut, 0');
+    return { message: `removed .bak/.trn files older than ${keep} days` };
+  }, opts);
+  return r.message;
 }
 
 /** When did each kind of run last succeed, and did the latest attempt fail? */
@@ -241,8 +248,10 @@ async function health(now = new Date()) {
     if (age > hours) problems.push(`${kind}: last success ${age.toFixed(1)} h ago (limit ${hours} h)`);
     if (!r.latest_ok) problems.push(kind + ': the latest run failed');
   }
-  if (!process.env.OFFSITE_BACKUP_DIR) problems.push('no off-host copy configured (OFFSITE_BACKUP_DIR)');
+  const cfg = await Cfg.load();
+  if (!cfg.offsite_dir.value) problems.push('no off-host copy configured (set the off-host folder in Settings > Backups)');
+  if (!cfg.enabled) problems.push('scheduled backups are switched off');
   return problems;
 }
 
-module.exports = { backupFull, backupLog, restoreDrill, pitrDrill, prune, status, health, backupDir };
+module.exports = { backupFull, backupLog, restoreDrill, pitrDrill, prune, status, health, backupDir, MAX_AGE_HOURS };

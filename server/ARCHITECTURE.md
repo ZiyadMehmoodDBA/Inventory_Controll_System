@@ -27,3 +27,6 @@ The append-only triggers refuse deletes unless the connection sets `sp_set_sessi
 - `npm run test:integration [smoke16 smoke17 ...]` – starts a throwaway API on port 3055 per suite (the rate limiter would otherwise reject later suites). Each suite creates and removes its own organisation.
 - Browser suites: start Vite (`npx vite --port 5199 --strictPort` in the project root) and an API on 3055, then
   `node tests/e2e/e2e.cjs <label> extra "$PWD/tests/e2e/e2e_roles.cjs"` (modules: rotation, sale, replenish, quality, hazmat, losses, warehouse, insights, roles, extra, master, control).
+
+## Platform administration
+Database-wide controls (the backup console, `/api/backups`) are limited to platform administrators: `users.is_platform_admin`, read live per request by `utils/platform.js`, set only by `scripts/grant-platform-admin.js`. An organisation administrator is not one by default, because backup folders are written by the database server and the backups contain every organisation's data. Backup jobs and settings are rows (`backup_jobs`, `platform_settings`) applied by `jobs/backupJob.js\` without a restart.
