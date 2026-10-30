@@ -94,14 +94,14 @@ export default function Settings() {
   const isAutoSaveTab = AUTO_SAVE_TABS.includes(tab);
 
   return (
-    <div className={`p-4 sm:p-6 mx-auto ${tab === 'backups' ? 'max-w-6xl' : 'max-w-4xl'}`}>
-      <div className="mb-6">
+    <div className="px-3 sm:px-4 pt-3 pb-4 mx-auto max-w-6xl">
+      <div className="mb-2.5">
         <h1 className="text-xl font-bold text-slate-900">Settings</h1>
         <p className="text-sm text-slate-400 mt-0.5">Configure company details, invoice defaults, products catalog, and lookup tables</p>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 mb-6 overflow-x-auto">
+      <div className="flex flex-wrap gap-1 bg-slate-100 rounded-2xl p-1 mb-3 w-full min-w-0" data-testid="settings-tabs">
         {TABS.map(t => {
           const Icon   = t.icon;
           const active = tab === t.id;
@@ -109,11 +109,11 @@ export default function Settings() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all flex-1 justify-center ${
+              className={`flex flex-auto min-w-0 items-center justify-center gap-1 px-2 lg:px-2.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Icon size={15} />
+              <Icon size={14} className="flex-shrink-0" />
               <span className="hidden sm:inline">{t.label}</span>
               <span className="sm:hidden">{t.label.split(' ')[0]}</span>
             </button>
