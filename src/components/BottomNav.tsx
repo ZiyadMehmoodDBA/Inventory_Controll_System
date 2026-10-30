@@ -1,39 +1,21 @@
 import { useState } from 'react';
-import {
-  LayoutDashboard, ShoppingCart, Boxes, Users, MoreHorizontal,
-  Package, FileText, Truck, BarChart2, Settings, LogOut, X, Car,
-} from 'lucide-react';
+import { MoreHorizontal, LogOut, X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useModules } from '../lib/businessTypes';
+import { NAV } from '../lib/navigation';
 
 interface BottomNavProps {
   activePage: string;
   onNavigate: (page: string) => void;
   onLogout: () => void;
   counts?: Record<string, number>;
+  visible: Set<string>;                  // screens this user may open (lib/navigation.ts): the same set the sidebar shows
 }
 
-
-const primaryTabs = [
-  { id: 'dashboard', label: 'Home',      icon: LayoutDashboard },
-  { id: 'sales',     label: 'Sales',     icon: ShoppingCart },
-  { id: 'inventory', label: 'Stock',     icon: Boxes },
-  { id: 'customers', label: 'Customers', icon: Users },
-];
-
-const allMoreItems = [
-  { id: 'purchases',   label: 'Purchases',     icon: Package },
-  { id: 'invoices',    label: 'Invoices',      icon: FileText },
-  { id: 'reports',     label: 'Reports',       icon: BarChart2 },
-  { id: 'suppliers',   label: 'Suppliers',     icon: Truck },
-  { id: 'tyreFitment', label: 'Tyre Fitment',  icon: Car },
-  { id: 'settings',    label: 'Settings',      icon: Settings },
-];
-
-export default function BottomNav({ activePage, onNavigate, onLogout, counts = {} }: BottomNavProps) {
+export default function BottomNav({ activePage, onNavigate, onLogout, counts = {}, visible }: BottomNavProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const modules = useModules();
-  const moreItems = allMoreItems.filter(i => i.id !== 'tyreFitment' || modules.tyreFitment);
+  // Four tabs from the shared list; every other screen the user may open is under "More", so nothing in the sidebar is unreachable on a phone.
+  const primaryTabs = NAV.filter(e => e.mobileTab && visible.has(e.id)).map(e => ({ id: e.id, label: e.mobileTab as string, icon: e.icon }));
+  const moreItems = NAV.filter(e => !e.mobileTab && visible.has(e.id));
 
   const isMoreActive = moreItems.some(item => item.id === activePage);
   const moreActivityCount = moreItems.reduce((sum, item) => sum + (counts[item.id] ?? 0), 0);

@@ -14,7 +14,7 @@ export async function loadAccess(): Promise<void> {
     const me = await api.access.me();
     state = { loaded: true, role: me.role, roleName: me.role_name, permissions: new Set(me.permissions), approvalLimit: me.approval_limit };
   } catch {
-    state = { ...EMPTY, loaded: true };
+    return;          // keep what we had (or stay "not loaded", where nothing is hidden); the API enforces access either way
   }
   emit();
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Header, { type AppNotification } from './components/Header';
 import Dashboard from './pages/Dashboard';
@@ -27,6 +27,9 @@ import { setTokens, setAccessToken, clearTokens, getRefreshToken } from './lib/a
 import { getCachedSettings } from './lib/appSettings';
 import { useModules, useTerms } from './lib/businessTypes';
 import { loadAccess, clearAccess, usePermissions } from './lib/permissions';
+import { visibleIds } from './lib/navigation';
+import { useAutoRefresh } from './lib/useAutoRefresh';
+import { SETTINGS_CACHE_KEY, SETTINGS_EVENT } from './lib/appSettings';
 
 export interface AuthUser {
   name: string;
@@ -44,9 +47,7 @@ interface LoginPayload extends AuthUser {
   rememberMe?: boolean;
 }
 
-const ADMIN_ONLY = new Set(['organizations', 'settings']);
-
-const allPages: Record<string, { title: string; subtitle: string; component: React.ComponentType; adminOnly?: boolean }> = {
+const allPages: Record<string, { title: string; subtitle: string; component: React.ComponentType }> = {
   dashboard:     { title: 'Dashboard',            subtitle: 'Welcome back',                                   component: Dashboard },
   sales:         { title: 'Sales',                subtitle: 'Manage customer sales and invoices',             component: Sales },
   purchases:     { title: 'Purchases',            subtitle: 'Track supplier orders and deliveries',           component: Purchases },
@@ -56,18 +57,13 @@ const allPages: Record<string, { title: string; subtitle: string; component: Rea
   customers:     { title: 'Customers',            subtitle: 'Manage customer relationships',                  component: Customers },
   suppliers:     { title: 'Suppliers',            subtitle: 'Manage supplier accounts',                       component: Suppliers },
   ledger:        { title: 'Financial Ledger',     subtitle: 'Banking-style accounts receivable & payable',   component: Ledger },
-  organizations: { title: 'Organizations',         subtitle: 'Manage organizations and branches',             component: Organizations, adminOnly: true },
+  organizations: { title: 'Organizations',         subtitle: 'Manage organizations and branches',             component: Organizations },
   reports:       { title: 'Reports & Analytics',   subtitle: 'Business performance insights',                 component: Reports },
   aiReports:     { title: 'AI Reports',            subtitle: 'Ask business questions in plain language',      component: AIReports },
   tyreFitment:   { title: 'Tyre Fitment Guide',    subtitle: 'Pakistan-market OEM tyre sizes by vehicle',    component: TyreFitment },
-  settings:      { title: 'Settings',              subtitle: 'Application configuration',                     component: Settings, adminOnly: true },
-  auditlog:      { title: 'Audit Log',             subtitle: 'Track all changes across sales, inventory & products', component: AuditLog, adminOnly: true },
+  settings:      { title: 'Settings',              subtitle: 'Application configuration',                     component: Settings },
+  auditlog:      { title: 'Audit Log',             subtitle: 'Track all changes across sales, inventory & products', component: AuditLog },
 };
-
-function getVisiblePages(role: string) {
-  if (role === 'org_admin') return allPages;
-  return Object.fromEntries(Object.entries(allPages).filter(([, p]) => !p.adminOnly));
-}
 
 export default function App() {
   const modules = useModules();
@@ -107,7 +103,14 @@ export default function App() {
   }, []);
 
   // What this user may do comes from the API (live), not from the login token.
-  useEffect(() => { if (user) loadAccess(); else clearAccess(); }, [user]);
+  useEffect(() => {
+    if (!user) { clearAccess(); return; }
+    loadAccess();
+    const again = () => { if (document.visibilityState === 'visible') loadAccess(); };
+    const id = setInterval(again, 60000);
+    window.addEventListener('focus', again);
+    return () => { clearInterval(id); window.removeEventListener('focus', again); };
+  }, [user]);
 
   // Warm settings cache once user is authenticated, then sync document.title
   useEffect(() => {
@@ -117,11 +120,13 @@ export default function App() {
       .catch(() => {});
   }, [user]);
 
-  // Fetch today's activity counts and build notification alerts
-  useEffect(() => {
+  // Today's activity counts and alerts. Refreshed when the user changes screen or branch and on the auto-refresh interval.
+  const [branchEpoch, setBranchEpoch] = useState(0);
+  const loadCounts = useCallback(() => {
     if (!user) { setCounts({}); setNotifications([]); return; }
-    const today = new Date().toISOString().slice(0, 10);
-    Promise.all([api.sales.list(), api.purchases.list()])
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    Promise.all([api.sales.list(), api.purchases.list().catch(() => [] as any[])])
       .then(([salesData, purchasesData]) => {
         const todaySales     = (salesData     as any[]).filter(s => s.date?.slice(0, 10) === today).length;
         const todayPurchases = (purchasesData as any[]).filter(p => p.date?.slice(0, 10) === today).length;
@@ -148,6 +153,8 @@ export default function App() {
       })
       .catch(() => {});
   }, [user]);
+  useEffect(() => { loadCounts(); }, [loadCounts, activePage, branchEpoch]);
+  useAutoRefresh(loadCounts);
 
   const [showProfile,        setShowProfile]        = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -181,10 +188,32 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await api.auth.logout();
+    try { await api.auth.logout(); } catch { /* the session ends locally either way */ }
     clearTokens();
+    // Nothing of this session may leak into the next sign-in (another user or organisation on the same browser)
+    try { localStorage.removeItem(SETTINGS_CACHE_KEY); localStorage.removeItem('orgId'); localStorage.removeItem('branchId'); } catch { /* storage unavailable */ }
+    window.dispatchEvent(new Event(SETTINGS_EVENT));
+    clearAccess();
+    setShowProfile(false);
+    setShowChangePassword(false);
+    setActivePage('dashboard');
+    setMobileSidebarOpen(false);
     setUser(null);
   };
+
+  const branches = user?.branches ?? [];
+  const branchId = Number(localStorage.getItem('branchId') || user?.branch_id || branches[0]?.id || 1);
+  const handleBranchChange = (id: number) => {
+    localStorage.setItem('branchId', String(id));
+    setBranchEpoch(e => e + 1);          // every screen remounts and loads the new branch
+  };
+
+  const isAdmin = (access.loaded && access.role ? access.role : user?.role) === 'org_admin';
+  const allowed = visibleIds({ isAdmin, modules, canAny: access.canAny });
+  useEffect(() => {
+    if (user && !allowed.has(activePage)) setActivePage('dashboard');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, activePage, [...allowed].join()]);
 
   if (authLoading) {
     return (
@@ -196,9 +225,8 @@ export default function App() {
 
   if (!user) return <Auth onAuth={handleAuth} />;
 
-  const pages = Object.fromEntries(Object.entries(getVisiblePages(user.role))
-    .filter(([id]) => id !== 'tyreFitment' || modules.tyreFitment)
-    .filter(([id]) => id !== 'purchases' || access.canAny('purchases.view', 'purchases.manage', 'stock.receive'))
+  const pages = Object.fromEntries(Object.entries(allPages)
+    .filter(([id]) => allowed.has(id))
     .map(([id, p]) => [id, id === 'inventory' ? { ...p, subtitle: terms.inventorySubtitle } : id === 'services' ? { ...p, subtitle: terms.servicesSubtitle } : p]));
   const page  = pages[activePage] ?? pages.dashboard;
   const PageComponent = page.component;
@@ -209,6 +237,7 @@ export default function App() {
   const handleNavigate = (p: string) => {
     // Prevent navigation to pages the user can't access
     if (!pages[p]) return;
+    setShowProfile(false);
     setActivePage(p);
     setMobileSidebarOpen(false);
   };
@@ -225,7 +254,7 @@ export default function App() {
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
         counts={counts}
-        adminOnlyPages={ADMIN_ONLY}
+        visible={allowed}
       />
 
       <div
@@ -244,6 +273,9 @@ export default function App() {
           onChangePassword={() => setShowChangePassword(true)}
           notifications={notifications}
           onNavigate={handleNavigate}
+          branches={isAdmin ? branches : []}
+          branchId={branchId}
+          onBranchChange={handleBranchChange}
         />
         <main className="flex-1 overflow-y-auto pb-14 lg:pb-0">
           {showProfile ? (
@@ -252,12 +284,12 @@ export default function App() {
               onUpdated={name => setUser(u => u ? { ...u, name } : u)}
             />
           ) : (
-            <PageComponent />
+            <PageComponent key={`${activePage}:${branchEpoch}`} />
           )}
         </main>
       </div>
 
-      <BottomNav activePage={activePage} onNavigate={handleNavigate} onLogout={handleLogout} counts={counts} />
+      <BottomNav activePage={activePage} onNavigate={handleNavigate} onLogout={handleLogout} counts={counts} visible={allowed} />
 
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />

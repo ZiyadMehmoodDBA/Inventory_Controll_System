@@ -1,70 +1,8 @@
-import {
-  LayoutDashboard, ShoppingCart, Package, FileText,
-  Users, Truck, BarChart2, Settings, ChevronLeft,
-  ChevronRight, Boxes, TrendingUp, LogOut, X, BookOpen, Building2, Wrench, ClipboardList, Car, Sparkles,
-} from 'lucide-react';
+import { Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, X } from 'lucide-react';
+import { NAV } from '../lib/navigation';
 import { cn } from '../lib/utils';
 import { usePermissions } from '../lib/permissions';
 import { getCachedSettings } from '../lib/appSettings';
-import { useModules } from '../lib/businessTypes';
-
-interface NavItem {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const navGroups: NavGroup[] = [
-  {
-    label: 'ANALYTICS',
-    items: [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'reports',   label: 'Reports',   icon: BarChart2 },
-      { id: 'aiReports', label: 'AI Reports', icon: Sparkles },
-    ],
-  },
-  {
-    label: 'OPERATIONS',
-    items: [
-      { id: 'sales',     label: 'Sales',     icon: ShoppingCart },
-      { id: 'purchases', label: 'Purchases', icon: Package },
-      { id: 'invoices',  label: 'Invoices',  icon: FileText },
-    ],
-  },
-  {
-    label: 'INVENTORY',
-    items: [
-      { id: 'inventory', label: 'Inventory', icon: Boxes  },
-      { id: 'services',  label: 'Services',  icon: Wrench },
-    ],
-  },
-  {
-    label: 'FINANCE',
-    items: [
-      { id: 'ledger', label: 'Ledger', icon: BookOpen },
-    ],
-  },
-  {
-    label: 'MANAGEMENT',
-    items: [
-      { id: 'customers',     label: 'Customers',     icon: Users },
-      { id: 'suppliers',     label: 'Suppliers',     icon: Truck },
-      { id: 'organizations', label: 'Organization',  icon: Building2 },
-      { id: 'auditlog',      label: 'Audit Log',     icon: ClipboardList },
-    ],
-  },
-  {
-    label: 'FITMENT GUIDE',
-    items: [
-      { id: 'tyreFitment', label: 'Tyre Fitment', icon: Car },
-    ],
-  },
-];
 
 interface SidebarProps {
   activePage: string;
@@ -76,22 +14,17 @@ interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   counts?: Record<string, number>;
-  adminOnlyPages?: Set<string>;
+  visible: Set<string>;                  // screens this user may open (lib/navigation.ts)
 }
 
 export default function Sidebar({
   activePage, onNavigate, collapsed, onCollapsedChange,
-  user, onLogout, mobileOpen, onMobileClose, counts = {}, adminOnlyPages = new Set(),
+  user, onLogout, mobileOpen, onMobileClose, counts = {}, visible,
 }: SidebarProps) {
   const { roleName } = usePermissions();
-  const isAdmin = user.role === 'org_admin';
-  const modules = useModules();
-  const visibleGroups = navGroups
-    .map(group => ({
-      ...group,
-      items: group.items.filter(item => (!adminOnlyPages.has(item.id) || isAdmin) && (item.id !== 'tyreFitment' || modules.tyreFitment)),
-    }))
-    .filter(group => group.items.length > 0);
+  const sections = NAV.filter(e => !e.footer && visible.has(e.id));
+  const visibleGroups = [...new Set(sections.map(e => e.group))].map(label => ({ label, items: sections.filter(e => e.group === label) }));
+  const canSettings = visible.has('settings');
   const desktopWidth = collapsed ? 'lg:w-[72px]' : 'lg:w-64';
 
   return (
@@ -234,7 +167,7 @@ export default function Sidebar({
 
         {/* Footer */}
         <div className="border-t border-slate-100 p-3 space-y-0.5">
-          {isAdmin && <button
+          {canSettings && <button
             onClick={() => onNavigate('settings')}
             title={collapsed ? 'Settings' : undefined}
             className={cn(

@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const CACHE_KEY = 'tunegen_settings_v1';
+export const SETTINGS_CACHE_KEY = CACHE_KEY;
 export const SETTINGS_EVENT = 'tunegen:settings';
 
 /** Read settings from localStorage, falling back to defaults. */

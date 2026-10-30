@@ -85,12 +85,8 @@ export default function Inventory() {
   const [transferFor, setTransferFor]     = useState<{ tireId?: number } | null>(null);
   const [locationCount, setLocationCount] = useState(1);
   const [pendingCount, setPendingCount]   = useState(0);
-  const role = (() => {
-    try { return JSON.parse(atob((localStorage.getItem('tunegen_at') ?? '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role as string; }
-    catch { return ''; }
-  })();
   // The API enforces every permission; these only decide which actions are offered.
-  const { can, canAny } = usePermissions();
+  const { can, canAny, role } = usePermissions();
   const canApprove = can('stock.approve');
   const canEditItems = can('inventory.manage_items');
   const canDeleteItems = can('inventory.delete_items');

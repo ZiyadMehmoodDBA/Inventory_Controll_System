@@ -21,6 +21,9 @@ interface HeaderProps {
   onChangePassword?: () => void;
   notifications?: AppNotification[];
   onNavigate?: (page: string) => void;
+  branches?: { id: number; name: string; code: string }[];   // organisation administrators with more than one branch
+  branchId?: number;
+  onBranchChange?: (id: number) => void;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -34,6 +37,7 @@ export default function Header({
   title, subtitle, user, onLogout, onMenuToggle,
   onProfile, onChangePassword,
   notifications = [], onNavigate,
+  branches = [], branchId, onBranchChange,
 }: HeaderProps) {
   const { roleName } = usePermissions();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -72,7 +76,17 @@ export default function Header({
         </div>
 
         {/* Notifications */}
-        <div className="relative">
+        {branches.length > 1 && (
+        <select
+          aria-label="Branch"
+          value={branchId}
+          onChange={e => onBranchChange?.(Number(e.target.value))}
+          className="text-xs font-semibold border border-slate-200 rounded-lg px-2 py-1.5 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 max-w-[9rem]"
+        >
+          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+      )}
+      <div className="relative">
           <button
             onClick={openNotif}
             className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
