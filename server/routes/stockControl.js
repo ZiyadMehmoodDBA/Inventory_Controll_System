@@ -7,6 +7,9 @@ const { requireRole }   = require('../middleware/auth');
 const P = require('../utils/permissions');
 const { writeAudit }    = require('../utils/audit');
 const { getContext }    = require('../context');
+const { handleError }   = require('../utils/errors');
+const { validate }      = require('../utils/validate');
+const S = require('../utils/schemas');
 const { StockError, ACTIVE_RESERVATION, defaultLocationId, createAdjustment, settleTransfer } = require('../utils/stock');
 const { nextDocNumber } = require('../utils/docNumber');
 const { assertLocationAccess } = require('../utils/access');
@@ -14,8 +17,7 @@ const { POSITION_APPLY, POSITION_COLUMNS } = require('../utils/stockPosition');
 
 function fail(res, err) {
   if (err instanceof StockError) return res.status(err.status).json({ error: err.message, code: err.code, ...err.details });
-  console.error('[stockControl]', err.message);
-  return res.status(500).json({ error: 'Stock operation failed' });
+  return handleError(res, err, 'stockControl');
 }
 
 async function inTransaction(fn) {
@@ -192,7 +194,7 @@ for (const action of ['receive', 'cancel']) {
     try {
       noDemo(req);
       const { orgId, branchId } = getContext(req);
-      const b = req.body || {};
+      const b = validate(req.body, action === 'receive' ? S.TRANSFER_RECEIVE_BODY : S.TRANSFER_CANCEL_BODY);
       const out = await inTransaction(tx => settleTransfer(tx, { orgId, user: userOf(req, branchId), transferId: int(req.params.id), action,
         lines: Array.isArray(b.lines) ? b.lines : null, shortAction: b.short_action || 'return', note: b.note }));
       const pool = await getPool();

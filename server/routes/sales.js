@@ -311,16 +311,16 @@ router.post('/', async (req, res) => {
     }
 
     // Capture payment in the same transaction (POS checkout).
-    // Walk-in sales (customer_id = null) skip sale_payments — no AR to track;
-    // amount_paid + status on the sales row itself is sufficient.
-    if (customer_id && payment_method && paidAmt > 0) {
+    // Every payment is kept, walk-in or not (migration 0008): a walk-in has no receivable and no customer ledger entry, but the
+    // cash taken at the counter is still traceable per payment and per method.
+    if (payment_method && paidAmt > 0) {
       const payDate = date || new Date().toISOString().split('T')[0];
       if (payment_method === 'mixed') {
         const cAmt = parseFloat(cash_amount || 0);
         const kAmt = parseFloat(card_amount || 0);
         if (cAmt > 0) {
           await new sql.Request(transaction)
-            .input('sale_id',   sql.Int,          saleId).input('cust_id',   sql.Int,          customer_id)
+            .input('sale_id',   sql.Int,          saleId).input('cust_id',   sql.Int,          customer_id || null)
             .input('org_id',    sql.Int,          orgId) .input('branch_id', sql.Int,          branchId)
             .input('amount',    sql.Decimal(18,2), cAmt)  .input('method',    sql.NVarChar,     'cash')
             .input('date',      sql.Date,         payDate)
@@ -329,7 +329,7 @@ router.post('/', async (req, res) => {
         }
         if (kAmt > 0) {
           await new sql.Request(transaction)
-            .input('sale_id',   sql.Int,          saleId).input('cust_id',   sql.Int,          customer_id)
+            .input('sale_id',   sql.Int,          saleId).input('cust_id',   sql.Int,          customer_id || null)
             .input('org_id',    sql.Int,          orgId) .input('branch_id', sql.Int,          branchId)
             .input('amount',    sql.Decimal(18,2), kAmt)  .input('method',    sql.NVarChar,     'card')
             .input('date',      sql.Date,         payDate)
@@ -338,7 +338,7 @@ router.post('/', async (req, res) => {
         }
       } else {
         await new sql.Request(transaction)
-          .input('sale_id',   sql.Int,          saleId).input('cust_id',   sql.Int,          customer_id)
+          .input('sale_id',   sql.Int,          saleId).input('cust_id',   sql.Int,          customer_id || null)
           .input('org_id',    sql.Int,          orgId) .input('branch_id', sql.Int,          branchId)
           .input('amount',    sql.Decimal(18,2), Math.min(paidAmt, total))
           .input('method',    sql.NVarChar,     payment_method)

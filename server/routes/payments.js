@@ -58,7 +58,8 @@ router.post('/sale', async (req, res) => {
       .input('status',      sql.NVarChar,     newStatus)
       .query('UPDATE sales SET amount_paid = @amount_paid, status = @status WHERE id = @id');
 
-    await new sql.Request(transaction)
+    // A walk-in sale has no customer account: its payment is recorded above, with no ledger entry.
+    if (sale.customer_id) await new sql.Request(transaction)
       .input('org_id',      sql.Int,          orgId)
       .input('branch_id',   sql.Int,          branchId)
       .input('entry_date',  sql.Date,         payDate)

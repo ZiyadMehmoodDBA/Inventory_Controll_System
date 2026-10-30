@@ -7,6 +7,9 @@ const { requireRole }   = require('../middleware/auth');
 const P = require('../utils/permissions');
 const { writeAudit }    = require('../utils/audit');
 const { getContext }    = require('../context');
+const { handleError }   = require('../utils/errors');
+const { validate }      = require('../utils/validate');
+const S = require('../utils/schemas');
 const LOCATION_KINDS = ['normal', 'quarantine', 'damaged'];
 const { ACTIVE_RESERVATION } = require('../utils/stock');
 const { StockError, ADJUSTMENT_REASONS, postMovement, createAdjustment, defaultLocationId, transferStock, valuationMethod, VALUATION_METHODS } = require('../utils/stock');
@@ -16,8 +19,7 @@ const scope = req => ({ orgId: req.user.orgId, branchId: req.user.branchId ?? nu
 
 function fail(res, err) {
   if (err instanceof StockError) return res.status(err.status).json({ error: err.message, code: err.code, ...err.details });
-  console.error('[stock]', err.message);
-  return res.status(500).json({ error: 'Stock operation failed' });
+  return handleError(res, err, 'stock');         // validation errors answer 400 with the field; anything unexpected is logged and answered 500
 }
 
 async function inTransaction(fn) {
@@ -83,16 +85,16 @@ router.get('/adjustments', async (req, res) => {
 router.post('/adjustments', P.requirePermission('stock.adjust_request', 'stock.adjust_direct'), async (req, res) => {
   try {
     const s = scope(req);
-    const { tire_id, qty_change, reason_code, notes, location_id, batch_id, batch_no, expiry_date } = req.body || {};
+    const { tire_id, qty_change, reason_code, notes, location_id, batch_id, batch_no, expiry_date } = validate(req.body, S.ADJUSTMENT_BODY);
     const out = await inTransaction(tx => createAdjustment(tx, {
-      orgId: s.orgId, user: s, tireId: parseInt(tire_id, 10), qtyChange: Number(qty_change), reasonCode: reason_code, notes,
-      locationId: location_id ? parseInt(location_id, 10) : null,
-      batchId: batch_id ? parseInt(batch_id, 10) : null,
+      orgId: s.orgId, user: s, tireId: tire_id, qtyChange: qty_change, reasonCode: reason_code, notes,
+      locationId: location_id || null,
+      batchId: batch_id || null,
       batch: batch_no ? { batchNo: batch_no, expiryDate: expiry_date || null } : null,
     }));
     const pool = await getPool();
     writeAudit(pool, { orgId: s.orgId, branchId: s.branchId, userId: s.userId, action: 'CREATE', entity: 'stock_adjustment', entityId: out.id,
-      before: null, after: { tire_id, qty_change: Number(qty_change), reason_code, status: out.status } });
+      before: null, after: { tire_id, qty_change, reason_code, status: out.status } });
     res.status(out.status === 'pending' ? 202 : 201).json(out);
   } catch (err) { fail(res, err); }
 });
@@ -101,7 +103,8 @@ async function decide(req, res, approve) {
   try {
     const s = scope(req);
     const id = parseInt(req.params.id, 10);
-    const note = req.body?.note ? String(req.body.note).slice(0, 300) : null;
+    if (!Number.isInteger(id) || id < 1) throw new StockError('NOT_FOUND', 'Adjustment not found', 404);
+    const note = validate(req.body, S.DECISION_BODY).note || null;
     const out = await inTransaction(async tx => {
       const r = await new sql.Request(tx).input('id', sql.Int, id).input('o', sql.Int, s.orgId)
         .query('SELECT * FROM stock_adjustments WITH (UPDLOCK) WHERE id = @id AND organization_id = @o');
@@ -463,11 +466,11 @@ router.post('/transfers', P.requirePermission('stock.transfer'), async (req, res
   try {
     const { orgId, branchId } = getContext(req);
     if (req.user.role === 'demo') return res.status(403).json({ error: 'Not available in demo mode' });
-    const b = req.body || {};
-    const items = (Array.isArray(b.items) ? b.items : []).map(i => ({ tireId: parseInt(i.tire_id, 10), qty: Number(i.qty) }));
+    const b = validate(req.body, S.TRANSFER_BODY);
+    const items = b.items.map(i => ({ tireId: i.tire_id, qty: i.qty }));
     const user = P.userCtx(req, branchId);
     const out = await inTransaction(tx => transferStock(tx, {
-      orgId, user, fromLocationId: parseInt(b.from_location_id, 10), toLocationId: parseInt(b.to_location_id, 10), items, notes: b.notes, inTransit: b.in_transit === true,
+      orgId, user, fromLocationId: b.from_location_id, toLocationId: b.to_location_id, items, notes: b.notes, inTransit: b.in_transit === true,
       expectedAt: b.expected_at || null, carrier: b.carrier, reference: b.reference,
     }));
     const pool = await getPool();

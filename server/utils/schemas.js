@@ -99,7 +99,32 @@ const BULK_PO = {
 };
 const BULK_LIST = (max = 1000) => v.array(v.object(), { min: 1, max });
 
-module.exports = {
+
+// ── Stock movements: adjustments and transfers (2026-10-30) ──
+// An id from a form may arrive as a number, a numeric string, or empty; an empty value means "not given".
+const optId = v.custom((x, k) => (x === null || x === undefined || x === '' ? [null, null] : Number.isInteger(Number(x)) && Number(x) >= 1 ? [null, Number(x)] : [`${k} must be a positive whole number`]), { optional: true, nullable: true });
+const optText = max => v.string({ max, optional: true, nullable: true });
+const QTY = v.number({ int: true, min: 1, max: 1000000 });
+
+const ADJUSTMENT_BODY = {
+  tire_id: v.int({ min: 1 }),
+  qty_change: v.number({ int: true, min: -1000000, max: 1000000 }),
+  reason_code: v.string({ min: 1, max: 30 }),
+  notes: optText(500), location_id: optId, batch_id: optId, batch_no: optText(60), expiry_date: optDate(),
+};
+const DECISION_BODY = { note: optText(300) };
+const TRANSFER_BODY = {
+  from_location_id: v.int({ min: 1 }), to_location_id: v.int({ min: 1 }),
+  items: v.array(v.shape({ tire_id: v.int({ min: 1 }), qty: QTY }), { min: 1, max: 200 }),
+  notes: optText(500), in_transit: v.bool({ optional: true, nullable: true }), expected_at: optDate(), carrier: optText(100), reference: optText(100),
+};
+const TRANSFER_RECEIVE_BODY = {
+  lines: v.array(v.shape({ tire_id: v.int({ min: 1 }), qty_received: v.number({ int: true, min: 0, max: 1000000 }) }), { max: 200, optional: true, nullable: true }),
+  short_action: v.enum(['return', 'write_off'], { optional: true, nullable: true }), note: optText(300),
+};
+const TRANSFER_CANCEL_BODY = { note: optText(300) };
+
+module.exports = { ADJUSTMENT_BODY, DECISION_BODY, TRANSFER_BODY, TRANSFER_RECEIVE_BODY, TRANSFER_CANCEL_BODY,
   SALE_BODY, PURCHASE_BODY, STATUS_BODY, PO_STATUS_BODY, SALE_PAYMENT_BODY, PURCHASE_PAYMENT_BODY,
   BULK_INVOICE, BULK_PO, BULK_LIST,
 };
