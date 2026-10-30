@@ -57,6 +57,7 @@ Code: `utils/dbBackup.js`; CLI `node scripts/backup.js <backup|log|drill|pitr|pr
 - **Restore drill:** restores the newest full backup into a scratch database, runs DBCC CHECKDB, and fails if item balances, ledger and location balances disagree or the append-only triggers are missing. Comparison with the live database is informational only (live moves on after a backup).
 - **Point-in-time recovery drill:** (1) a synthetic scratch database in FULL recovery gets a full backup, row A, a noted time, row B, a log backup; restoring full + log STOPAT that time must return A without B; (2) the production newest full backup plus the log backups after it are restored and verified like a drill.
 - **Evidence (2026-10-29):** verified full and log backup; restore drill passed (CHECKDB clean, 0 mismatched items, 2 s); point-in-time drill passed (synthetic exact restore to the second, production full+log chain restored, CHECKDB clean).
+- **Health check:** `npm run backup:check` exits 1 and lists problems when the last full backup is older than 26 h, the last log backup older than 1.5 h, a drill older than 8 days, the latest run of any kind failed, or no off-host copy is configured. Run it from Windows Task Scheduler (hourly) or any monitor that alerts on a non-zero exit.
 - **Operations still required of the business:** set `BACKUP_JOB=on`, set `OFFSITE_BACKUP_DIR`, and monitor: alert when the last full is older than 26 h, the last log older than 90 min, or the latest drill failed.
 
 ## Data integrity housekeeping (2026-10-29)

@@ -227,4 +227,22 @@ async function status() {
   return r;
 }
 
-module.exports = { backupFull, backupLog, restoreDrill, pitrDrill, prune, status, backupDir };
+// Limits an external monitor can alarm on. The log limit is three missed 30-minute runs; drills run weekly, so a day of slack.
+const MAX_AGE_HOURS = { full: 26, log: 1.5, drill: 8 * 24, pitr: 8 * 24 };
+
+/** Problems with the backup regime right now: stale or failing runs, no off-host copy. Empty list = healthy. */
+async function health(now = new Date()) {
+  const rows = Object.fromEntries((await status()).map(r => [r.kind, r]));
+  const problems = [];
+  for (const [kind, hours] of Object.entries(MAX_AGE_HOURS)) {
+    const r = rows[kind];
+    if (!r || !r.last_ok) { problems.push(kind + ': never succeeded'); continue; }
+    const age = (now - new Date(r.last_ok)) / 3600000;
+    if (age > hours) problems.push(`${kind}: last success ${age.toFixed(1)} h ago (limit ${hours} h)`);
+    if (!r.latest_ok) problems.push(kind + ': the latest run failed');
+  }
+  if (!process.env.OFFSITE_BACKUP_DIR) problems.push('no off-host copy configured (OFFSITE_BACKUP_DIR)');
+  return problems;
+}
+
+module.exports = { backupFull, backupLog, restoreDrill, pitrDrill, prune, status, health, backupDir };

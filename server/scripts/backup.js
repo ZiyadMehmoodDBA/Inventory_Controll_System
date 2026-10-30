@@ -5,6 +5,7 @@
 //   node scripts/backup.js pitr             point-in-time recovery proof (synthetic exact test + production full+log chain)
 //   node scripts/backup.js prune [days]     delete .bak/.trn older than `days` (default BACKUP_RETENTION_DAYS or 14)
 //   node scripts/backup.js status           last success of each kind
+//   node scripts/backup.js check            exit 1 and list problems when a backup is stale/failed or no off-host copy is set (for a scheduler or monitor)
 // Exit code 1 on any failure, so a scheduler can alert on it. See ACCEPTANCE.md for the schedule.
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const B = require('../utils/dbBackup');
@@ -19,7 +20,8 @@ const B = require('../utils/dbBackup');
     else if (cmd === 'pitr') { const r = await B.pitrDrill(); r.lines.forEach(l => console.log('  ' + l)); console.log(r.ok ? 'point-in-time recovery drill passed' : `PITR DRILL FAILED: ${r.error}`); code = r.ok ? 0 : 1; }
     else if (cmd === 'prune') console.log(await B.prune(arg));
     else if (cmd === 'status') console.table((await B.status()).map(r => ({ kind: r.kind, last_ok: r.last_ok, last_run: r.last_run, latest_run_ok: !!r.latest_ok })));
-    else { console.log('usage: node scripts/backup.js backup [--log] | log | drill [--keep] | pitr | prune [days] | status'); code = 2; }
+    else if (cmd === 'check') { const p = await B.health(); console.log(p.length ? 'UNHEALTHY:\n  ' + p.join('\n  ') : 'backups healthy'); code = p.length ? 1 : 0; }
+    else { console.log('usage: node scripts/backup.js backup [--log] | log | drill [--keep] | pitr | prune [days] | status | check'); code = 2; }
   } catch (e) { console.error('FAILED:', e.message); code = 1; }
   process.exit(code);
 })();
