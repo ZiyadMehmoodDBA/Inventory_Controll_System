@@ -42,6 +42,22 @@ const check = (n, c, x = '') => { (c ? pass++ : fail++); console.log(`${c ? 'PAS
     const flag = (await pool.request().input('i', sql.Int, tenantId).query('SELECT is_platform_admin AS f FROM users WHERE id = @i')).recordset[0].f;
     check('a tenant admin cannot promote themselves through the users API', flag === false, `status ${r.status} flag ${flag}`);
 
+    // a platform admin's account cannot be taken over by an ordinary admin of the same organisation
+    const plat2 = await mkUser('platformtwo21', 'org_admin', 1);
+    const dbFlag = async id => (await pool.request().input('i', sql.Int, id).query('SELECT is_platform_admin AS f, is_active AS a FROM users WHERE id = @i')).recordset[0];
+    r = await call('PATCH', '/users/' + plat2 + '/password', { password: 'Hacked-Password-1' }, T.tenant);
+    check('a tenant admin cannot reset a platform admin password', r.status === 403 && r.body.code === 'PLATFORM_ONLY', JSON.stringify(r));
+    r = await call('PATCH', '/users/' + plat2 + '/status', { is_active: false }, T.tenant);
+    check('a tenant admin cannot deactivate a platform admin', r.status === 403 && r.body.code === 'PLATFORM_ONLY' && (await dbFlag(plat2)).a === true, JSON.stringify(r));
+    r = await call('PUT', '/users/' + plat2, { name: 'x', role: 'staff' }, T.tenant);
+    check('a tenant admin cannot edit or demote a platform admin', r.status === 403 && r.body.code === 'PLATFORM_ONLY' && (await dbFlag(plat2)).f === true, JSON.stringify(r));
+    r = await call('PATCH', '/users/' + staffId + '/password', { password: 'Another-Password-1' }, T.tenant);
+    check('the same admin can still manage ordinary users', r.status === 200, JSON.stringify(r));
+    r = await call('PUT', '/users/' + plat2, { name: 'platformtwo21', role: 'staff' });
+    check('a platform admin can demote another platform admin, which ends the platform rights', r.status === 200 && (await dbFlag(plat2)).f === false, JSON.stringify({ r, f: await dbFlag(plat2) }));
+    r = await call('PUT', '/users/' + plat2, { name: 'platformtwo21', role: 'org_admin' });
+    check('promoting them back to administrator does not bring the platform rights back', r.status === 200 && (await dbFlag(plat2)).f === false, JSON.stringify({ r, f: await dbFlag(plat2) }));
+
     // ── overview ──
     r = await call('GET', '/backups/overview');
     const ov = r.body;

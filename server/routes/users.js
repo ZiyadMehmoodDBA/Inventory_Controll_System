@@ -6,6 +6,7 @@ const { getContext }   = require('../context');
 const { writeAudit }   = require('../utils/audit');
 const P = require('../utils/permissions');
 const { AppError, handleError } = require('../utils/errors');
+const { isPlatformAdmin } = require('../utils/platform');
 const { v, validate } = require('../utils/validate');
 
 // User management needs the "manage users" permission (administrators by default).
@@ -58,9 +59,12 @@ async function resolveRole(req, orgId, { role, access_role_id }) {
 // A user who is not an administrator may not change an administrator's account.
 async function assertMayChange(req, orgId, id) {
   const pool = await getPool();
-  const t = (await pool.request().input('i', sql.Int, id).input('o', sql.Int, orgId).query('SELECT id, role, access_role_id, is_active FROM users WHERE id = @i AND organization_id = @o')).recordset[0];
+  const t = (await pool.request().input('i', sql.Int, id).input('o', sql.Int, orgId).query('SELECT id, role, access_role_id, is_active, is_platform_admin FROM users WHERE id = @i AND organization_id = @o')).recordset[0];
   if (!t) throw err('User not found', 404, 'NOT_FOUND');
   if (t.role === 'org_admin' && req.user.role !== 'org_admin') throw err('Only an administrator can change an administrator account', 403, 'ESCALATION');
+  // A platform administrator's account (password, status, role) may be changed only by another platform administrator, so an ordinary
+  // administrator of the same organisation cannot take it over and inherit database-wide rights.
+  if (t.is_platform_admin && !(await isPlatformAdmin(req.user))) throw err('Only a platform administrator can change a platform administrator account', 403, 'PLATFORM_ONLY');
   return t;
 }
 
@@ -160,7 +164,8 @@ router.put('/:id', async (req, res) => {
       .input('branchId', sql.Int,      branch_id || null)
       .query(`
         UPDATE users
-        SET name=@name, phone=@phone, role=@role, access_role_id=@arole, branch_id=@branchId
+        SET name=@name, phone=@phone, role=@role, access_role_id=@arole, branch_id=@branchId,
+            is_platform_admin = CASE WHEN @role = 'org_admin' THEN is_platform_admin ELSE 0 END   -- demotion ends platform rights for good
         OUTPUT INSERTED.id, INSERTED.name, INSERTED.email, INSERTED.phone,
                INSERTED.role, INSERTED.access_role_id, INSERTED.branch_id, INSERTED.is_active
         WHERE id=@id AND organization_id=@orgId
