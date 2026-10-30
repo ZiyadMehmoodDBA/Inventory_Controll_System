@@ -226,6 +226,8 @@ router.post('/', async (req, res) => {
     // POS: derive status from payment captured
     const paidAmt = parseFloat(amount_paid || 0);
     if (paidAmt > total + 0.005) throw new AppError(`The amount paid (${paidAmt.toFixed(2)}) is more than the sale total (${total.toFixed(2)})`, 400, 'OVERPAYMENT');
+    if (payment_method === 'mixed' && Math.abs(Number(cash_amount || 0) + Number(card_amount || 0) - paidAmt) > 0.01)
+      throw new AppError('Cash plus card must equal the amount paid', 400, 'SPLIT_MISMATCH');
     let finalStatus = requestedStatus;
     if (payment_method) {
       if (paidAmt >= total - 0.005)   finalStatus = 'paid';

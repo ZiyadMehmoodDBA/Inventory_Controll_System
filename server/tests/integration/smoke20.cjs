@@ -141,6 +141,27 @@ const check = (n, c, x = '') => { (c ? pass++ : fail++); console.log(`${c ? 'PAS
     r = await call('POST', '/payments/purchase', { purchase_id: po2.id, amount: 5 });
     check('a cancelled purchase takes no payment', r.status === 409 && r.body.code === 'PURCHASE_CANCELLED', JSON.stringify(r));
 
+    // ── purchase status: a state machine, so stock cannot be booked twice ──
+    const st0 = await stockOf(item);
+    const po3 = (await call('POST', '/purchases', { supplier_id: supA, date: today, items: [{ tire_id: item, qty: 4, unit_price: 4 }] })).body;
+    r = await call('PATCH', '/purchases/' + po3.id + '/status', { status: 'received' });
+    check('pending -> received books the stock once', r.status === 200 && (await stockOf(item)) === st0 + 4, JSON.stringify(r));
+    r = await call('PATCH', '/purchases/' + po3.id + '/status', { status: 'pending' });
+    check('received -> pending is refused', r.status === 409 && r.body.code === 'INVALID_TRANSITION' && (await stockOf(item)) === st0 + 4, JSON.stringify(r));
+    r = await call('PATCH', '/purchases/' + po3.id + '/status', { status: 'received' });
+    check('received -> received is a no-op (no second booking)', r.status === 200 && (await stockOf(item)) === st0 + 4, JSON.stringify(r));
+    r = await call('PATCH', '/purchases/' + po3.id + '/status', { status: 'cancelled' });
+    check('received -> cancelled reverses the stock', r.status === 200 && (await stockOf(item)) === st0, JSON.stringify(r));
+    r = await call('PATCH', '/purchases/' + po3.id + '/status', { status: 'received' });
+    check('a cancelled order cannot be received again', r.status === 409 && r.body.code === 'INVALID_TRANSITION' && (await stockOf(item)) === st0, JSON.stringify(r));
+
+    // ── mixed tender must add up ──
+    r = await call('POST', '/sales', { customer_id: custA, date: today, items: [line], tax_rate: 0, payment_method: 'mixed', amount_paid: 10, cash_amount: 10, card_amount: 10 });
+    check('cash plus card that exceeds the amount paid is refused', r.status === 400 && r.body.code === 'SPLIT_MISMATCH', JSON.stringify(r));
+    r = await call('POST', '/sales', { customer_id: custA, date: today, items: [line], tax_rate: 0, payment_method: 'mixed', amount_paid: 10, cash_amount: 4, card_amount: 6 });
+    const sp = Number((await pool.request().input('i', sql.Int, r.body.id).query('SELECT ISNULL(SUM(amount),0) AS s FROM sale_payments WHERE sale_id = @i')).recordset[0].s);
+    check('a split that adds up is booked in full', r.status === 201 && sp === 10, JSON.stringify({ r, sp }));
+
     // ── imports: per-row validation, the rest still go in ──
     r = await call('POST', '/sales/bulk', { invoices: 'nope' });
     check('a bulk sale import must be a list', bad(r, 'invoices'), JSON.stringify(r));

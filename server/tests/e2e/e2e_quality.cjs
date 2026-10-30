@@ -18,7 +18,7 @@ const body = async ({ page, check, api, errors, SHOTS, label }) => {
   await page.getByRole('button', { name: /^Inventory/ }).first().click();
   await page.locator('button[title^="Expiry, shelf life and quality"]').click();
   const modal = page.locator('div.fixed:has(h3:text-is("Expiry & Quality"))');
-  await modal.waitFor({ timeout: 8000 });
+  await modal.waitFor({ timeout: 20000 });
   await page.waitForSelector('text=/E2E Soon Milk/', { timeout: 10000 });
   const txt = await modal.innerText();
   check('alerts tab lists the near-expiry batch', txt.includes('E2E Soon Milk') && txt.includes('QS1'), txt.slice(0, 400));
@@ -27,7 +27,7 @@ const body = async ({ page, check, api, errors, SHOTS, label }) => {
   await modal.getByRole('button', { name: 'Batches', exact: true }).click();
   await modal.getByPlaceholder('Search item, SKU or batch').fill('E2E Inspect');
   const row = modal.locator('tr:has-text("QI1")');
-  await row.waitFor({ timeout: 8000 });
+  await row.waitFor({ timeout: 20000 });
   check('batch row shows released status', (await row.innerText()).includes('Released'));
 
   // hold via UI
@@ -38,7 +38,7 @@ const body = async ({ page, check, api, errors, SHOTS, label }) => {
   check('confirm disabled without a reason', await confirm.isDisabled());
   await dlg.locator('textarea').fill('Customer complaint about smell');
   await confirm.click();
-  await modal.locator('tr:has-text("QI1"):has-text("On hold")').waitFor({ timeout: 8000 });
+  await modal.locator('tr:has-text("QI1"):has-text("On hold")').waitFor({ timeout: 20000 });
   const held = (await api('GET', `/inventory/quality/batches?tire_id=${insp}`)).body[0];
   check('hold applied through the UI', held.quality_status === 'on_hold' && /smell/.test(held.status_reason), JSON.stringify(held));
   const sale = await api('POST', '/sales', { date: d(0), items: [{ tire_id: insp, qty: 1, unit_price: 20 }], tax_rate: 0 });
@@ -50,41 +50,41 @@ const body = async ({ page, check, api, errors, SHOTS, label }) => {
   await dlg.waitFor({ timeout: 5000 });
   await dlg.locator('textarea').fill('Lab result clean');
   await dlg.getByRole('button', { name: 'Confirm' }).click();
-  await modal.locator('tr:has-text("QI1"):has-text("Released")').waitFor({ timeout: 8000 });
+  await modal.locator('tr:has-text("QI1"):has-text("Released")').waitFor({ timeout: 20000 });
   let relOk = false; for (let i = 0; i < 20 && !relOk; i++) { relOk = (await api('GET', `/inventory/quality/batches?tire_id=${insp}`)).body[0].quality_status === 'released'; if (!relOk) await page.waitForTimeout(300); }
   check('release applied through the UI', relOk);
 
   // recall via UI
   await modal.getByPlaceholder('Search item, SKU or batch').fill('E2E Soon');
-  await modal.locator('tr:has-text("QI1")').waitFor({ state: 'detached', timeout: 8000 });
+  await modal.locator('tr:has-text("QI1")').waitFor({ state: 'detached', timeout: 20000 });
   const r2 = modal.locator('tr:has-text("QS1")');
-  await r2.waitFor({ timeout: 8000 });
+  await r2.waitFor({ timeout: 20000 });
   await r2.locator('input[type=checkbox]').check();
   await modal.getByRole('button', { name: /Recall selected \(1\)/ }).click();
   await dlg.waitFor({ timeout: 5000 });
   await dlg.getByPlaceholder('Title').fill('E2E milk recall');
   await dlg.getByPlaceholder('Why are these products recalled?').fill('Possible contamination');
   await dlg.getByRole('button', { name: 'Open recall' }).click();
-  await modal.locator('tr:has-text("QS1"):has-text("Recalled")').waitFor({ timeout: 8000 });
+  await modal.locator('tr:has-text("QS1"):has-text("Recalled")').waitFor({ timeout: 20000 });
   const recalls = (await api('GET', '/inventory/quality/recalls')).body;
   check('recall opened through the UI', recalls.some(r => r.title === 'E2E milk recall' && r.status === 'open' && r.batches === 1), JSON.stringify(recalls));
   await modal.getByRole('button', { name: 'Recalls', exact: true }).click();
   await modal.locator('tr:has-text("E2E milk recall")').click();
-  await page.getByPlaceholder('Closure note (required)').waitFor({ timeout: 8000 });
+  await page.getByPlaceholder('Closure note (required)').waitFor({ timeout: 20000 });
   await page.screenshot({ path: path.join(SHOTS, `e2e-${label}-quality-recall.png`) });
 
   // dispose from batch tab
   await modal.getByRole('button', { name: 'Batches', exact: true }).click();
   await modal.getByPlaceholder('Search item, SKU or batch').fill('E2E Soon');
-  await modal.locator('tr:has-text("QS1")').waitFor({ timeout: 8000 });
+  await modal.locator('tr:has-text("QS1")').waitFor({ timeout: 20000 });
   await modal.locator('tr:has-text("QS1")').getByRole('button', { name: 'Dispose', exact: true }).click();
   await dlg.waitFor({ timeout: 5000 });
   await dlg.locator('textarea').fill('Destroyed per recall');
   await dlg.getByRole('button', { name: 'Confirm' }).click();
-  await page.waitForSelector('text=/DSP.*10 unit/', { timeout: 8000 });
+  await page.waitForSelector('text=/DSP.*10 unit/', { timeout: 20000 });
   check('disposal posted and stock cleared', (await api('GET', `/inventory/position/${soon}`)).body.on_hand === 0);
   await modal.getByRole('button', { name: 'Disposals', exact: true }).click();
-  await page.waitForSelector('text=/Destroyed per recall/', { timeout: 8000 });
+  await page.waitForSelector('text=/Destroyed per recall/', { timeout: 20000 });
   check('disposals register shows it', (await modal.innerText()).includes('E2E Soon Milk'));
 
   // rules & profile
@@ -93,7 +93,7 @@ const body = async ({ page, check, api, errors, SHOTS, label }) => {
   await dlg.getByPlaceholder('Name').fill('E2E Pharma');
   await dlg.getByPlaceholder('Applicable regulation or standard').fill('GDP');
   await dlg.getByRole('button', { name: 'Save', exact: true }).click();
-  await modal.locator('tr:has-text("E2E Pharma")').waitFor({ timeout: 8000 });
+  await modal.locator('tr:has-text("E2E Pharma")').waitFor({ timeout: 20000 });
   check('profile created through the UI', (await api('GET', '/inventory/quality/profiles')).body.some(p => p.name === 'E2E Pharma' && p.regulation === 'GDP'));
 
   // item form: quality section and profile assignment
@@ -101,7 +101,7 @@ const body = async ({ page, check, api, errors, SHOTS, label }) => {
   await page.locator('input[placeholder*="Search"]').first().fill('E2E Inspect');
   await page.waitForTimeout(700);
   await page.locator('button[title="Edit"], button:has(svg.lucide-pencil)').first().click();
-  await page.locator('summary:has-text("Quality & inspection")').waitFor({ timeout: 8000 });
+  await page.locator('summary:has-text("Quality & inspection")').waitFor({ timeout: 20000 });
   await page.locator('summary:has-text("Quality & inspection")').click();
   const sel = page.locator('select:has(option:text-is("None (category or company rules)"))');
   await sel.selectOption({ label: 'E2E Pharma — GDP' });

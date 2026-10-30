@@ -160,6 +160,8 @@ router.post('/', P.requirePermission('purchases.manage'), async (req, res) => {
   }
 });
 
+const PO_TRANSITIONS = { pending: ['received', 'cancelled'], received: ['cancelled'], cancelled: [] };
+
 router.patch('/:id/status', P.requirePermission('purchases.manage', 'stock.receive'), async (req, res) => {
   const { orgId } = getContext(req);
   const pool        = await getPool();
@@ -177,6 +179,10 @@ router.patch('/:id/status', P.requirePermission('purchases.manage', 'stock.recei
       return res.status(404).json({ error: 'Purchase not found' });
     }
     const poRef = current.recordset[0].po_no;
+    // pending -> received | cancelled, received -> cancelled. Nothing returns to pending, nothing leaves cancelled: that would book the stock twice or hide a reversal.
+    const from = current.recordset[0].status;
+    if (from === status) { await transaction.rollback(); return res.json({ success: true }); }
+    if (!(PO_TRANSITIONS[from] || []).includes(status)) throw new AppError(`A ${from} purchase order cannot become ${status}`, 409, 'INVALID_TRANSITION');
 
     await new sql.Request(transaction)
       .input('id',     sql.Int,      req.params.id)
