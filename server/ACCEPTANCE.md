@@ -1,6 +1,6 @@
 # Product and Inventory Control: acceptance record
 
-Status as of 2026-10-29. "Evidence" names the automated suite that proves a criterion; run them with `npm test`, `npm run test:integration` and the browser suites in `tests/e2e`. Anything not proven by a test is listed under **Open items**.
+Status as of 2026-11-02. "Evidence" names the automated suite that proves a criterion; run them with `npm test`, `npm run test:integration` and the browser suites in `tests/e2e`. Anything not proven by a test is listed under **Open items**.
 
 ## Entity map (spec name -> existing ERP table)
 | Spec entity | Table(s) |
@@ -62,7 +62,7 @@ Code: `utils/dbBackup.js`, `utils/backupConfig.js`, `jobs/backupJob.js`, `routes
 - **Point-in-time recovery drill:** (1) a synthetic scratch database in FULL recovery gets a full backup, row A, a noted time, row B, a log backup; restoring full + log STOPAT that time must return A without B; (2) the production newest full backup plus the log backups after it are restored and verified like a drill.
 - **Evidence (2026-10-29):** verified full and log backup; restore drill passed (CHECKDB clean, 0 mismatched items, 2 s); point-in-time drill passed (synthetic exact restore to the second, production full+log chain restored, CHECKDB clean).
 - **Health check:** the console banner and `npm run backup:check` (exit 1 and a list) report: last full backup older than 26 h, last log backup older than 1.5 h, a drill older than 8 days, the latest run of any kind failed, scheduled backups switched off, or no off-host copy. Run `backup:check` hourly from Windows Task Scheduler (or any monitor that alerts on a non-zero exit) so someone is told without opening the console.
-- **Operations still required of the business:** set the off-host folder in the console and schedule `npm run backup:check`.
+- **Operations still required of the business:** set the off-host folder in the console, and schedule the health check (`powershell -ExecutionPolicy Bypass -File scripts\schedule-backup-check.ps1` registers an hourly Windows task; `-Remove` undoes it).
 
 ## Business-aware catalogue scraper (2026-10-30)
 Code: `catalogue/` (`profiles.js`, `netguard.js`, `extract.js`, `normalize.js`, `service.js`), `routes/catalogue.js`, UI **Settings > Catalogue Scraper**; tables `catalogue_profiles`, `catalogue_jobs`, `catalogue_raw`, `catalogue_records` (migration 0007). Evidence: `catalogue/catalogue.test.js`, smoke22 (87 checks), e2e_catalogue (43).
@@ -94,8 +94,12 @@ Code: `catalogue/` (`profiles.js`, `netguard.js`, `extract.js`, `normalize.js`, 
 - Supplier in-full delivery is not measurable: a purchase order is received as a whole, not per line. On-time delivery and lead time are.
 - Order fulfillment accuracy is the share of orders not voided or returned. There is no pick/ship/back-order step to measure against.
 - Turnover and carrying cost use an opening value rebuilt from the ledger and the current valuation method; they are management figures, not a ledger close.
-- Contracts declared with `utils/validate.js`: access, users, KPI, and (2026-10-30) the money routes: sales, purchases, payments and their Excel imports (`utils/schemas.js`, evidence smoke20). Also (2026-10-30) stock adjustments, approve/reject, transfers and in-transit receive/cancel, and organisations (evidence smoke23). Still validated by hand: inventory item master, customers, suppliers, services, ledger, settings.
+- Contracts declared with `utils/validate.js`: access, users, KPI, and (2026-10-30) the money routes: sales, purchases, payments and their Excel imports (`utils/schemas.js`, evidence smoke20). Also (2026-10-30) stock adjustments, approve/reject, transfers and in-transit receive/cancel, and organisations (evidence smoke23). Also customers, suppliers, services, the item master and settings (evidence smoke25). Ledger has no write routes. Still validated by hand: the narrower inventory sub-routes (categories, locations, warehouses, hazard classes, quality profiles, lookups).
 - Money-route rules enforced beyond shape: quantities are whole numbers from 1, prices and amounts are 0 to 1e9, a sale cannot be created voided, an order discount cannot exceed the order, a till payment cannot exceed the total, a payment cannot exceed the balance due (409 OVERPAYMENT), voided sales and cancelled purchases take no payment, a purchase supplier must belong to the organisation, and payments lock the document row so two at once cannot both pass.
+- Cross-tenant isolation is probed, not assumed: smoke24 attacks 49 id-bearing routes of tenant B with tenant A's valid credentials (no 2xx, no 5xx, B's records unchanged, nothing of B in A's audit log). Routes that answered 200 for a foreign id after a scoped no-op now answer 404; the shared tyre reference database and its scraper are platform-administrator only; system-info lists only the caller's own sessions; the generic settings route takes only profile/defaults keys (policy keys have their own permissioned routes) and is for administrators and managers.
+- Header search is a quick-jump to the screens the user may open; Escape closes the sales status menu; the multi-branch switcher is covered (e2e_shell).
+- Audit hygiene: the integration runner fails if a suite leaves audit rows behind for deleted organisations. 287 such rows from a 2026-10-29 test run (organisations no longer exist) remain; the log is append-only, so removing them needs an explicit decision.
+- The reports engine enforces role access server-side by data classification (staff are denied financial reports); the dashboard's sales totals are visible to every role by design.
 - Organisations: a tenant sees, reads and edits only its own organisation (other ids answer 404); listing and creating others is platform-administrator only (smoke23).
 - Walk-in sales (no customer) keep `sale_payments` rows, one per tender, with no customer ledger entry; migration 0008 made `customer_id` nullable and backfilled past walk-in sales (smoke23).
 - Data imports (Excel and catalog) are covered by smoke/smoke2 for good and bad rows; very large files are untested.

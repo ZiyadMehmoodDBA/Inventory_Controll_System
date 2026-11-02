@@ -2,7 +2,12 @@ const express = require('express');
 const router  = express.Router();
 const { getPool, sql } = require('../db');
 const { getContext }   = require('../context');
+const { handleError }  = require('../utils/errors');
+const { validate }     = require('../utils/validate');
+const S = require('../utils/schemas');
 const { nextEntityCode } = require('../utils/docNumber');
+// A route id is a positive integer; anything else is simply not found (never a database error).
+router.param('id', (req, res, next, val) => (/^\d{1,10}$/.test(val) && Number(val) <= 2147483647 ? next() : res.status(404).json({ error: 'Not found' })));
 
 // Returns the existing customer that owns this phone number within the org,
 // or null if the phone is free.  Pass excludeId on updates to ignore self.
@@ -68,9 +73,7 @@ router.post('/', async (req, res) => {
     const {
       name, phone, email, address,
       vehicle_plate, vehicle_make, vehicle_model, vehicle_year,
-    } = req.body;
-
-    if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+    } = validate(req.body, S.CUSTOMER_BODY);
 
     const pool = await getPool();
 
@@ -105,9 +108,7 @@ router.post('/', async (req, res) => {
            @vehicle_plate, @vehicle_make, @vehicle_model, @vehicle_year)
       `);
     res.status(201).json(result.recordset[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'customers'); }
 });
 
 router.put('/:id', async (req, res) => {
@@ -116,9 +117,7 @@ router.put('/:id', async (req, res) => {
     const {
       name, phone, email, address, balance,
       vehicle_plate, vehicle_make, vehicle_model, vehicle_year,
-    } = req.body;
-
-    if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+    } = validate(req.body, S.CUSTOMER_BODY);
 
     const pool = await getPool();
 
@@ -152,9 +151,7 @@ router.put('/:id', async (req, res) => {
       `);
     if (!result.recordset.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.recordset[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'customers'); }
 });
 
 router.delete('/:id', async (req, res) => {
@@ -168,14 +165,13 @@ router.delete('/:id', async (req, res) => {
     if (check.recordset[0].cnt > 0) {
       return res.status(400).json({ error: 'Cannot delete customer with existing sales records.' });
     }
-    await pool.request()
+    const del = await pool.request()
       .input('id',    sql.Int, req.params.id)
       .input('orgId', sql.Int, orgId)
       .query('DELETE FROM customers WHERE id = @id AND organization_id = @orgId');
+    if (!del.rowsAffected[0]) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'customers'); }
 });
 
 router.post('/bulk', async (req, res) => {

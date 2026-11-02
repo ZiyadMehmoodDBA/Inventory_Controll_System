@@ -252,15 +252,15 @@ const REPORTS = {
 
   payments_received: {
     title: 'Payments received', domain: 'receivables', classification: 'confidential_financial', metric: 'cash_received',
-    description: 'Recorded customer payments, optionally for one customer.',
+    description: 'Recorded payments, including walk-in (counter) sales; optionally for one customer.',
     params: { period: P_PERIOD('this_month'), entity: { type: 'entity', kind: 'customer', required: false }, limit: P_LIMIT(200) },
     columns: [col('payment_date', 'Date', 'date'), col('customer', 'Customer'), col('reference_no', 'Reference'), col('payment_method', 'Method'), col('amount', 'Amount', 'currency')],
     chart: null,
     caveats: ['Recorded payments only; reversals/refunds are not modelled as separate entries.'],
     build: (scope, p) => ({
-      sql: `SELECT TOP (@rowLimit) CONVERT(VARCHAR(10), sp.payment_date, 23) AS payment_date, c.name AS customer,
+      sql: `SELECT TOP (@rowLimit) CONVERT(VARCHAR(10), sp.payment_date, 23) AS payment_date, ISNULL(c.name, 'Walk-in') AS customer,
                    sp.reference_no, sp.payment_method, sp.amount
-            FROM sale_payments sp JOIN customers c ON c.id = sp.customer_id AND c.organization_id = @orgId
+            FROM sale_payments sp LEFT JOIN customers c ON c.id = sp.customer_id AND c.organization_id = @orgId
             JOIN sales s ON s.id = sp.sale_id
             WHERE sp.organization_id = @orgId AND ${BR} AND (@entityId IS NULL OR sp.customer_id = @entityId)
               AND sp.payment_date BETWEEN CAST(@from AS DATE) AND CAST(@to AS DATE)

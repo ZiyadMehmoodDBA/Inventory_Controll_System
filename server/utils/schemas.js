@@ -124,7 +124,49 @@ const TRANSFER_RECEIVE_BODY = {
 };
 const TRANSFER_CANCEL_BODY = { note: optText(300) };
 
-module.exports = { ADJUSTMENT_BODY, DECISION_BODY, TRANSFER_BODY, TRANSFER_RECEIVE_BODY, TRANSFER_CANCEL_BODY,
+// ── Master data: customers, suppliers, services (2026-10-30). Limits mirror the column sizes. ──
+const mtext = (max, o = {}) => v.string({ max, optional: true, nullable: true, ...o });
+const mmoney = v.number({ min: 0, max: 1e9, optional: true, nullable: true, emptyIsNull: true });
+const PARTY = { name: v.string({ min: 1, max: 100 }), phone: mtext(50), email: mtext(100), address: mtext(200) };
+const CUSTOMER_BODY = {
+  ...PARTY, balance: v.number({ min: -1e9, max: 1e9, optional: true, nullable: true, emptyIsNull: true }),
+  vehicle_plate: mtext(20), vehicle_make: mtext(50), vehicle_model: mtext(50), vehicle_year: v.int({ min: 1900, max: 2100, optional: true, nullable: true, emptyIsNull: true }),
+};
+const SUPPLIER_BODY = { ...PARTY, balance: v.number({ min: -1e9, max: 1e9, optional: true, nullable: true, emptyIsNull: true }) };
+const SERVICE_BODY = {
+  code: mtext(50), name: v.string({ min: 1, max: 200 }), description: mtext(500), category: mtext(100), unit: mtext(50),
+  cost_price: mmoney, sale_price: mmoney, is_active: v.bool({ optional: true, nullable: true }),
+};
+
+// Item master (inventory POST/PUT). Free-form extras (tracking, conversions, supplier, etc.) are read from the raw body by their own parsers.
+const ITEM_BODY = {
+  brand: mtext(100), model: mtext(100), size: mtext(50), type: mtext(50),
+  stock: v.number({ min: 0, max: 1e7, optional: true, nullable: true, emptyIsNull: true }),
+  cost_price: mmoney, sale_price: mmoney,
+  reorder_level: v.int({ min: 0, max: 1e7, optional: true, nullable: true, emptyIsNull: true }),
+  pattern: mtext(50), load_index: mtext(50), speed_index: mtext(50), dot: mtext(50),
+};
+
+// Organisation profile and defaults (POST /settings). Policy keys (valuation, negative stock, approvals, rotation...) have their own
+// permissioned routes and are deliberately NOT writable here, even though GET returns them and the form posts the whole map back.
+const scalar = (max, o = {}) => v.custom((x, k) => {
+  if (!['string', 'number', 'boolean'].includes(typeof x)) return [`${k} must be text or a number`];
+  const s = String(x).trim();
+  if (s.length > max) return [`${k} must be at most ${max} characters`];
+  if (o.pattern && s && !o.pattern.test(s)) return [o.msg || `${k} has an invalid format`];
+  return [null, s];
+}, { optional: true, nullable: true });
+const SETTINGS_BODY = {
+  company_name: scalar(100), company_tagline: scalar(200), company_address: scalar(300), company_phone: scalar(50), company_email: scalar(120),
+  announcement: scalar(500), currency: scalar(3, { pattern: /^[A-Za-z]{3}$/, msg: 'currency must be a 3-letter code' }),
+  invoice_prefix: scalar(10, { pattern: /^[A-Za-z0-9-]+$/ }), po_prefix: scalar(10, { pattern: /^[A-Za-z0-9-]+$/ }),
+  default_tax_rate: scalar(6, { pattern: /^\d{1,3}(\.\d{1,2})?$/, msg: 'default_tax_rate must be a number from 0 to 100' }),
+  payment_due_days: scalar(3, { pattern: /^\d{1,3}$/, msg: 'payment_due_days must be a whole number of days' }),
+  default_sale_status: scalar(20, { pattern: /^[a-z_]+$/ }), refresh_interval: scalar(6, { pattern: /^\d{1,6}$/ }),
+  business_type: scalar(40, { pattern: /^[a-z_]+$/ }),
+};
+
+module.exports = { SETTINGS_BODY, ITEM_BODY, CUSTOMER_BODY, SUPPLIER_BODY, SERVICE_BODY, ADJUSTMENT_BODY, DECISION_BODY, TRANSFER_BODY, TRANSFER_RECEIVE_BODY, TRANSFER_CANCEL_BODY,
   SALE_BODY, PURCHASE_BODY, STATUS_BODY, PO_STATUS_BODY, SALE_PAYMENT_BODY, PURCHASE_PAYMENT_BODY,
   BULK_INVOICE, BULK_PO, BULK_LIST,
 };

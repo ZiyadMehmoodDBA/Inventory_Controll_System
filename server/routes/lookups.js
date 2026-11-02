@@ -101,10 +101,11 @@ router.delete('/tire-types/:id', async (req, res) => {
     if (check.recordset[0].cnt > 0) {
       return res.status(400).json({ error: `Cannot delete — ${check.recordset[0].cnt} tire(s) use this type.` });
     }
-    await pool.request()
+    const del = await pool.request()
       .input('id',    sql.Int, req.params.id)
       .input('orgId', sql.Int, orgId)
       .query('DELETE FROM tire_types WHERE id = @id AND organization_id = @orgId');
+    if (!del.rowsAffected[0]) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

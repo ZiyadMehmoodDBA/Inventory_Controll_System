@@ -14,6 +14,15 @@ const all = fs.readdirSync(dir).filter(f => f.endsWith('.cjs')).map(f => f.repla
 const wanted = process.argv.slice(2);
 const suites = wanted.length ? all.filter(s => wanted.includes(s)) : all;
 
+// Audit rows whose organisation no longer exists. The audit log is append-only, so a suite that deletes its organisation without
+// purging its audit rows (sp_set_session_context 'allow_purge') leaves them behind for good. Compared before/after rather than to zero.
+async function auditOrphans() {
+  process.chdir(root);
+  const { getPool } = require(path.join(root, 'db'));
+  const r = await (await getPool()).request().query('SELECT COUNT(*) AS n FROM audit_logs a WHERE NOT EXISTS (SELECT 1 FROM organizations o WHERE o.id = a.organization_id)');
+  return r.recordset[0].n;
+}
+
 async function waitForApi() {
   for (let i = 0; i < 60; i++) {
     try { const r = await fetch(`http://localhost:${PORT}/api/health`); if (r.status < 500) return; } catch { /* not up yet */ }
@@ -24,6 +33,7 @@ async function waitForApi() {
 
 (async () => {
   let failed = 0;
+  const orphansBefore = await auditOrphans().catch(() => null);
   for (const name of suites) {
     const api = spawn(process.execPath, ['index.js'], { cwd: root, env: { ...process.env, PORT, BACKUP_SCHEDULER: 'off', CATALOGUE_ALLOW_LOOPBACK: 'on', CATALOGUE_MIN_GAP_MS: '0' }, stdio: 'ignore' });
     try {
@@ -36,6 +46,11 @@ async function waitForApi() {
       console.log(`${bad ? 'FAIL' : 'ok  '} ${name}: ${last}`);
       if (bad) console.log(out.split('\n').filter(l => /^(FAIL|EXC)/.test(l)).slice(0, 8).join('\n'));
     } finally { api.kill(); await new Promise(r => setTimeout(r, 800)); }
+  }
+  const orphansAfter = await auditOrphans().catch(() => null);
+  if (orphansBefore != null && orphansAfter != null && orphansAfter > orphansBefore) {
+    failed++;
+    console.log(`FAIL audit hygiene: ${orphansAfter - orphansBefore} audit row(s) left behind for deleted organisations (a suite cleanup is missing 'DELETE FROM audit_logs' under allow_purge)`);
   }
   console.log(failed ? `\n${failed} suite(s) failed` : '\nall integration suites passed');
   process.exit(failed ? 1 : 0);

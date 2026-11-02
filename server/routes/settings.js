@@ -4,6 +4,9 @@ const { getPool, sql }     = require('../db');
 const { getContext }       = require('../context');
 const { requireRole }      = require('../middleware/auth');
 const { BUSINESS_TYPES }   = require('../utils/businessTypes');
+const { handleError, AppError } = require('../utils/errors');
+const { validate }         = require('../utils/validate');
+const { SETTINGS_BODY }    = require('../utils/schemas');
 
 router.get('/', async (req, res) => {
   try {
@@ -20,22 +23,26 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+// Changing the company profile and defaults is for administrators and branch managers.
+router.post('/', requireRole('org_admin', 'branch_manager'), async (req, res) => {
   try {
     const { orgId } = getContext(req);
     const pool    = await getPool();
-    const entries = Object.entries(req.body || {});
-    if (!entries.length) return res.status(400).json({ error: 'No settings provided' });
-    if ('business_type' in (req.body || {})) {
-      if (!BUSINESS_TYPES.includes(req.body.business_type)) return res.status(400).json({ error: 'Unknown business type' });
-      if (req.user.role !== 'org_admin') return res.status(403).json({ error: 'Only an administrator can change the business type' });
+    // Only the profile/defaults keys are taken; anything else in the body (the form posts back every key it loaded) is ignored.
+    const body    = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => k in SETTINGS_BODY));
+    const clean   = validate(body, SETTINGS_BODY);
+    const entries = Object.entries(clean).filter(([, val]) => val !== null);
+    if (!entries.length) throw new AppError('No settings provided', 400, 'NO_SETTINGS');
+    if ('business_type' in clean) {
+      if (!BUSINESS_TYPES.includes(clean.business_type)) throw new AppError('Unknown business type', 400, 'INVALID_BUSINESS_TYPE');
+      if (req.user.role !== 'org_admin') throw new AppError('Only an administrator can change the business type', 403, 'FORBIDDEN');
     }
 
     for (const [key, value] of entries) {
       await pool.request()
         .input('org_id', sql.Int,      orgId)
         .input('key',    sql.NVarChar, key)
-        .input('value',  sql.NVarChar, String(value ?? ''))
+        .input('value',  sql.NVarChar, value)
         .query(`
           MERGE settings AS target
           USING (SELECT @org_id AS organization_id, @key AS [key]) AS source
@@ -51,9 +58,7 @@ router.post('/', async (req, res) => {
     const map = {};
     for (const row of result.recordset) map[row.key] = row.value;
     res.json(map);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'settings'); }
 });
 
 // System info — org_admin only
@@ -86,11 +91,11 @@ router.get('/system-info', requireRole('org_admin'), async (req, res) => {
         `),
 
       // Active sessions: unique users with a non-expired refresh token
-      pool.request().query(`
+      pool.request().input('orgId', sql.Int, orgId).query(`
         SELECT u.name, u.email, u.role, MAX(rt.created_at) AS last_active
         FROM refresh_tokens rt
         JOIN users u ON u.id = rt.user_id
-        WHERE rt.expires_at > GETDATE()
+        WHERE rt.expires_at > GETDATE() AND u.organization_id = @orgId
         GROUP BY u.id, u.name, u.email, u.role
         ORDER BY last_active DESC
       `),

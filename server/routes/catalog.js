@@ -9,6 +9,7 @@ const router   = express.Router();
 const { getPool, sql }    = require('../db');
 const { requireRole }     = require('../middleware/auth');
 const P = require('../utils/permissions');
+const { requirePlatformAdmin } = require('../utils/platform');
 const {
   rescheduleJob, getJobStatus, triggerManualRun, SCHEDULE_OPTIONS,
 } = require('../jobs/catalogScraper');
@@ -37,7 +38,7 @@ function buildEntriesRequest(pool, { q, brand, model, size, offset, pageSize }) 
 /* ─────────────────────────────────────────────────────────────────────────────
    GET /api/catalog/scraper/config
    ───────────────────────────────────────────────────────────────────────────── */
-router.get('/scraper/config', P.requirePermission('policy.configure'), async (req, res) => {
+router.get('/scraper/config', requirePlatformAdmin, P.requirePermission('policy.configure'), async (req, res) => {
   try {
     const pool   = await getPool();
     const result = await pool.request().query(`
@@ -66,7 +67,7 @@ router.get('/scraper/config', P.requirePermission('policy.configure'), async (re
    POST /api/catalog/scraper/config
    Body: { enabled: bool, schedule: string }
    ───────────────────────────────────────────────────────────────────────────── */
-router.post('/scraper/config', P.requirePermission('policy.configure'), async (req, res) => {
+router.post('/scraper/config', requirePlatformAdmin, P.requirePermission('policy.configure'), async (req, res) => {
   try {
     const { enabled, schedule } = req.body;
     const safeSchedule = SCHEDULE_OPTIONS[schedule] ? schedule : 'daily_2am';
@@ -100,7 +101,7 @@ router.post('/scraper/config', P.requirePermission('policy.configure'), async (r
 /* ─────────────────────────────────────────────────────────────────────────────
    POST /api/catalog/scraper/run  — manual trigger (fire-and-forget)
    ───────────────────────────────────────────────────────────────────────────── */
-router.post('/scraper/run', P.requirePermission('policy.configure'), async (req, res) => {
+router.post('/scraper/run', requirePlatformAdmin, P.requirePermission('policy.configure'), async (req, res) => {
   try {
     const started = await triggerManualRun();
     if (!started) {
@@ -115,7 +116,7 @@ router.post('/scraper/run', P.requirePermission('policy.configure'), async (req,
 /* ─────────────────────────────────────────────────────────────────────────────
    GET /api/catalog/scraper/status
    ───────────────────────────────────────────────────────────────────────────── */
-router.get('/scraper/status', P.requirePermission('policy.configure'), async (req, res) => {
+router.get('/scraper/status', requirePlatformAdmin, P.requirePermission('policy.configure'), async (req, res) => {
   try {
     const pool = await getPool();
 
@@ -186,7 +187,7 @@ router.get('/entries', async (req, res) => {
 /* ─────────────────────────────────────────────────────────────────────────────
    DELETE /api/catalog/entries/:id   (org_admin only)
    ───────────────────────────────────────────────────────────────────────────── */
-router.delete('/entries/:id', P.requirePermission('policy.configure'), async (req, res) => {
+router.delete('/entries/:id', requirePlatformAdmin, P.requirePermission('policy.configure'), async (req, res) => {
   try {
     const pool = await getPool();
     await pool.request()
@@ -201,7 +202,7 @@ router.delete('/entries/:id', P.requirePermission('policy.configure'), async (re
 /* ─────────────────────────────────────────────────────────────────────────────
    GET /api/catalog/stats   — quick summary (used by the Settings tab header)
    ───────────────────────────────────────────────────────────────────────────── */
-router.get('/stats', P.requirePermission('policy.configure'), async (req, res) => {
+router.get('/stats', requirePlatformAdmin, P.requirePermission('policy.configure'), async (req, res) => {
   try {
     const pool = await getPool();
     const r    = await pool.request().query(`

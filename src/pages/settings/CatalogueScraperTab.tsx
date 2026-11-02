@@ -10,6 +10,7 @@ import ErrorBanner from '../../components/ErrorBanner';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { Field } from './shared';
 import CatalogScraperTab from './CatalogScraperTab';
+import { usePermissions } from '../../lib/permissions';
 
 const CORE = ['name', 'brand', 'sku', 'barcode', 'oem', 'category', 'subcategory', 'price', 'wholesale_price', 'unit', 'pack_size', 'image_url', 'description'];
 const inputCls = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-400 bg-white';
@@ -184,6 +185,7 @@ function RecordModal({ id, mode, profile, onClose, onSaved }: { id: number; mode
 // ── main ────────────────────────────────────────────────────────────────────
 export default function CatalogueScraperTab() {
   const modules = useModules();
+  const { platformAdmin } = usePermissions();      // the tyre reference database is shared by every organisation
   const orgType = getCachedSettings().business_type || 'general_store';
   const [type, setType]         = useState<string>(orgType);
   const [profile, setProfile]   = useState<any>(null);
@@ -443,7 +445,7 @@ export default function CatalogueScraperTab() {
         </section>
       )}
 
-      {modules.tyreCatalog && (
+      {modules.tyreCatalog && platformAdmin && (
         <section className="border border-slate-200 rounded-2xl overflow-hidden">
           <button onClick={() => setShowTyre(s => !s)} className="w-full px-4 py-3 bg-slate-50 flex items-center justify-between text-left">
             <span><span className="text-sm font-bold text-slate-900 block">Tyre reference database</span><span className="text-xs text-slate-400">The scheduled scraper that keeps the shared tyre brand / model / size list up to date.</span></span>

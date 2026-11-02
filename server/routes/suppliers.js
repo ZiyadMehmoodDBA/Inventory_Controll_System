@@ -3,7 +3,12 @@ const express = require('express');
 const router  = express.Router();
 const { getPool, sql } = require('../db');
 const { getContext }   = require('../context');
+const { handleError }  = require('../utils/errors');
+const { validate }     = require('../utils/validate');
+const S = require('../utils/schemas');
 const { nextEntityCode } = require('../utils/docNumber');
+// A route id is a positive integer; anything else is simply not found (never a database error).
+router.param('id', (req, res, next, val) => (/^\d{1,10}$/.test(val) && Number(val) <= 2147483647 ? next() : res.status(404).json({ error: 'Not found' })));
 
 router.get('/', async (req, res) => {
   try {
@@ -47,8 +52,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', P.requirePermission('suppliers.manage'), async (req, res) => {
   try {
     const { orgId } = getContext(req);
-    const { name, phone, email, address } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { name, phone, email, address } = validate(req.body, S.SUPPLIER_BODY);
     const pool = await getPool();
     const code = await nextEntityCode(pool.request(), 'suppliers');
     const result = await pool.request()
@@ -64,15 +68,13 @@ router.post('/', P.requirePermission('suppliers.manage'), async (req, res) => {
         VALUES (@orgId, @code, @name, @phone, @email, @address)
       `);
     res.status(201).json(result.recordset[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'suppliers'); }
 });
 
 router.put('/:id', P.requirePermission('suppliers.manage'), async (req, res) => {
   try {
     const { orgId } = getContext(req);
-    const { name, phone, email, address, balance } = req.body;
+    const { name, phone, email, address, balance } = validate(req.body, S.SUPPLIER_BODY);
     const pool = await getPool();
     const result = await pool.request()
       .input('id',      sql.Int,         req.params.id)
@@ -87,10 +89,9 @@ router.put('/:id', P.requirePermission('suppliers.manage'), async (req, res) => 
         OUTPUT INSERTED.*
         WHERE id = @id AND organization_id = @orgId
       `);
+    if (!result.recordset.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.recordset[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'suppliers'); }
 });
 
 router.delete('/:id', P.requirePermission('suppliers.manage'), async (req, res) => {
@@ -104,14 +105,13 @@ router.delete('/:id', P.requirePermission('suppliers.manage'), async (req, res) 
     if (check.recordset[0].cnt > 0) {
       return res.status(400).json({ error: 'Cannot delete supplier with existing purchase records.' });
     }
-    await pool.request()
+    const del = await pool.request()
       .input('id',    sql.Int, req.params.id)
       .input('orgId', sql.Int, orgId)
       .query('DELETE FROM suppliers WHERE id = @id AND organization_id = @orgId');
+    if (!del.rowsAffected[0]) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'suppliers'); }
 });
 
 router.post('/bulk', P.requirePermission('suppliers.manage'), async (req, res) => {

@@ -56,12 +56,14 @@ export default function Sales() {
   );
   const { data: sales, setData: setSales, loading, refreshing, error, setError, refresh: fetchSales } = useFetch<any>(salesApiFn);
 
-  // Close status menu on outside click
+  // Close status menu on outside click or Escape
   useEffect(() => {
     if (statusMenu === null) return;
     const close = () => setStatusMenu(null);
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', esc); };
   }, [statusMenu]);
 
   const handleView = async (id: number) => {

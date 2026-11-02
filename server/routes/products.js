@@ -2,7 +2,12 @@ const express = require('express');
 const router  = express.Router();
 const { getPool, sql } = require('../db');
 const { getContext }   = require('../context');
+const { handleError }  = require('../utils/errors');
+const { validate }     = require('../utils/validate');
+const S = require('../utils/schemas');
 const { writeAudit }   = require('../utils/audit');
+// A route id is a positive integer; anything else is simply not found (never a database error).
+router.param('id', (req, res, next, val) => (/^\d{1,10}$/.test(val) && Number(val) <= 2147483647 ? next() : res.status(404).json({ error: 'Not found' })));
 
 router.get('/', async (req, res) => {
   try {
@@ -20,8 +25,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { orgId } = getContext(req);
-    const { code, name, description, category, unit, cost_price, sale_price, is_active } = req.body;
-    if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+    const { code, name, description, category, unit, cost_price, sale_price, is_active } = validate(req.body, S.SERVICE_BODY);
     const pool   = await getPool();
     const result = await pool.request()
       .input('orgId',       sql.Int,          orgId)
@@ -30,8 +34,8 @@ router.post('/', async (req, res) => {
       .input('description', sql.NVarChar,     description?.trim() || '')
       .input('category',    sql.NVarChar,     category?.trim()    || '')
       .input('unit',        sql.NVarChar,     unit?.trim()        || 'pcs')
-      .input('cost_price',  sql.Decimal(18,2), Number(cost_price) || 0)
-      .input('sale_price',  sql.Decimal(18,2), Number(sale_price) || 0)
+      .input('cost_price',  sql.Decimal(18,2), cost_price || 0)
+      .input('sale_price',  sql.Decimal(18,2), sale_price || 0)
       .input('is_active',   sql.Bit,           is_active !== false ? 1 : 0)
       .query(`
         INSERT INTO products (organization_id, code, name, description, category, unit, cost_price, sale_price, is_active)
@@ -44,22 +48,19 @@ router.post('/', async (req, res) => {
       before: null, after: { id: row.id, name: row.name, category: row.category, sale_price: row.sale_price, is_active: row.is_active },
     });
     res.status(201).json(row);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'products'); }
 });
 
 router.put('/:id', async (req, res) => {
   try {
     const { orgId } = getContext(req);
-    const { code, name, description, category, unit, cost_price, sale_price, is_active } = req.body;
-    if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+    const { code, name, description, category, unit, cost_price, sale_price, is_active } = validate(req.body, S.SERVICE_BODY);
     const pool = await getPool();
 
     // Capture before for audit
     const beforeRes = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('SELECT id, name, category, sale_price, cost_price, is_active FROM products WHERE id = @id');
+      .input('id', sql.Int, req.params.id).input('orgId', sql.Int, orgId)
+      .query('SELECT id, name, category, sale_price, cost_price, is_active FROM products WHERE id = @id AND organization_id = @orgId');
     const beforeRow = beforeRes.recordset[0] || null;
 
     const result = await pool.request()
@@ -70,8 +71,8 @@ router.put('/:id', async (req, res) => {
       .input('description', sql.NVarChar,     description?.trim() || '')
       .input('category',    sql.NVarChar,     category?.trim()    || '')
       .input('unit',        sql.NVarChar,     unit?.trim()        || 'pcs')
-      .input('cost_price',  sql.Decimal(18,2), Number(cost_price) || 0)
-      .input('sale_price',  sql.Decimal(18,2), Number(sale_price) || 0)
+      .input('cost_price',  sql.Decimal(18,2), cost_price || 0)
+      .input('sale_price',  sql.Decimal(18,2), sale_price || 0)
       .input('is_active',   sql.Bit,           is_active !== false ? 1 : 0)
       .query(`
         UPDATE products
@@ -90,9 +91,7 @@ router.put('/:id', async (req, res) => {
       });
     }
     res.json(row);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'products'); }
 });
 
 router.delete('/:id', async (req, res) => {
@@ -102,17 +101,18 @@ router.delete('/:id', async (req, res) => {
 
     // Capture before deletion for audit
     const beforeRes = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('SELECT id, name, category, sale_price, is_active FROM products WHERE id = @id');
+      .input('id', sql.Int, req.params.id).input('orgId', sql.Int, orgId)
+      .query('SELECT id, name, category, sale_price, is_active FROM products WHERE id = @id AND organization_id = @orgId');
+    if (!beforeRes.recordset.length) return res.status(404).json({ error: 'Not found' });
     const beforeRow = beforeRes.recordset[0] || null;
 
     const usedRes = await pool.request()
-      .input('id', sql.Int, req.params.id)
+      .input('id', sql.Int, req.params.id).input('orgId', sql.Int, orgId)
       .query(`
         SELECT COUNT(*) AS cnt FROM (
-          SELECT product_id FROM sale_items     WHERE product_id = @id
+          SELECT si.product_id FROM sale_items si JOIN sales s ON s.id = si.sale_id AND s.organization_id = @orgId WHERE si.product_id = @id
           UNION ALL
-          SELECT product_id FROM purchase_items WHERE product_id = @id
+          SELECT pi.product_id FROM purchase_items pi JOIN purchases p ON p.id = pi.purchase_id AND p.organization_id = @orgId WHERE pi.product_id = @id
         ) x
       `);
     if (usedRes.recordset[0].cnt > 0) {
@@ -128,9 +128,7 @@ router.delete('/:id', async (req, res) => {
       before: beforeRow, after: null,
     });
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { handleError(res, err, 'products'); }
 });
 
 module.exports = router;

@@ -3,6 +3,9 @@ const router  = express.Router();
 const { getPool, sql } = require('../db');
 const { getContext }   = require('../context');
 
+// A route id is a positive integer; anything else is simply not found (never a database error).
+router.param('id', (req, res, next, val) => (/^\d{1,10}$/.test(val) && Number(val) <= 2147483647 ? next() : res.status(404).json({ error: 'Not found' })));
+
 router.get('/summary', async (req, res) => {
   try {
     const { orgId } = getContext(req);

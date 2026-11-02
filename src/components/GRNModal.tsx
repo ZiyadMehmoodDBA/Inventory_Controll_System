@@ -110,8 +110,10 @@ export default function GRNModal({ onClose, onCreated }: Props) {
   // Click-outside to close product-search dropdowns
   useEffect(() => {
     const handler = () => setRowOpen({});
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') handler(); };
     document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('click', handler); document.removeEventListener('keydown', esc); };
   }, []);
 
   // ── Cascade option derivations ─────────────────────────────────────────────

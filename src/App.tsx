@@ -27,7 +27,7 @@ import { setTokens, setAccessToken, clearTokens, getRefreshToken } from './lib/a
 import { getCachedSettings } from './lib/appSettings';
 import { useModules, useTerms } from './lib/businessTypes';
 import { loadAccess, clearAccess, usePermissions } from './lib/permissions';
-import { visibleIds } from './lib/navigation';
+import { visibleIds, NAV } from './lib/navigation';
 import { useAutoRefresh } from './lib/useAutoRefresh';
 import { SETTINGS_CACHE_KEY, SETTINGS_EVENT } from './lib/appSettings';
 
@@ -276,6 +276,7 @@ export default function App() {
           branches={isAdmin ? branches : []}
           branchId={branchId}
           onBranchChange={handleBranchChange}
+          screens={NAV.filter(e => pages[e.id]).map(e => ({ id: e.id, label: e.label }))}
         />
         <main className="flex-1 overflow-y-auto pb-14 lg:pb-0">
           {showProfile ? (

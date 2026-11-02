@@ -25,6 +25,7 @@ interface HeaderProps {
   branches?: { id: number; name: string; code: string }[];   // organisation administrators with more than one branch
   branchId?: number;
   onBranchChange?: (id: number) => void;
+  screens?: { id: string; label: string }[];                 // screens this user may open, for the quick-jump search
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -38,11 +39,23 @@ export default function Header({
   title, subtitle, user, onLogout, onMenuToggle,
   onProfile, onChangePassword,
   notifications = [], onNavigate,
-  branches = [], branchId, onBranchChange,
+  branches = [], branchId, onBranchChange, screens = [],
 }: HeaderProps) {
   const { roleName } = usePermissions();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const matches = query.trim() ? screens.filter(x => x.label.toLowerCase().includes(query.trim().toLowerCase())) : [];
+  const searchRef = useDismiss<HTMLDivElement>(searchOpen, () => setSearchOpen(false));
+  const jump = (id: string) => { onNavigate?.(id); setQuery(''); setSearchOpen(false); };
+  const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => Math.min(i + 1, matches.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
+    else if (e.key === 'Enter' && matches[active]) { e.preventDefault(); jump(matches[active].id); }
+    else if (e.key === 'Escape') { setQuery(''); setSearchOpen(false); }
+  };
 
   const notifRef = useDismiss<HTMLDivElement>(notifOpen, () => setNotifOpen(false));
   const userRef  = useDismiss<HTMLDivElement>(dropdownOpen, () => setDropdownOpen(false));
@@ -68,14 +81,33 @@ export default function Header({
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Search — hidden on mobile */}
-        <div className="relative hidden md:block">
+        {/* Quick jump to a screen — hidden on mobile */}
+        <div className="relative hidden md:block" ref={searchRef}>
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search..."
-            className="pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-400 w-40 lg:w-48 transition-all focus:w-56 lg:focus:w-64"
+            role="combobox"
+            aria-label="Go to screen"
+            aria-expanded={searchOpen && matches.length > 0}
+            aria-controls="header-search-list"
+            placeholder="Go to..."
+            value={query}
+            onChange={e => { setQuery(e.target.value); setActive(0); setSearchOpen(true); }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={onSearchKey}
+            className="pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-400 w-40 lg:w-48 transition-all focus:w-56"
           />
+          {searchOpen && query.trim() && (
+            <ul id="header-search-list" role="listbox" className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50">
+              {matches.length === 0 && <li className="px-3 py-2 text-xs text-slate-400">No matching screen</li>}
+              {matches.map((m, i) => (
+                <li key={m.id} role="option" aria-selected={i === active}>
+                  <button type="button" onMouseEnter={() => setActive(i)} onClick={() => jump(m.id)}
+                    className={cn('w-full text-left px-3 py-2 text-sm', i === active ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-slate-50')}>{m.label}</button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Branch switcher: organisation administrators with more than one branch */}

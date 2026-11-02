@@ -8,6 +8,9 @@ const { StockError, MOVEMENT, postMovement, createAdjustment, changeTracking } =
 const { requireRole } = require('../middleware/auth');
 const P = require('../utils/permissions');
 const IM = require('../utils/itemMaster');
+const { handleError } = require('../utils/errors');
+const { validate }    = require('../utils/validate');
+const S = require('../utils/schemas');
 const { POSITION_APPLY, POSITION_COLUMNS } = require('../utils/stockPosition');
 
 const canManage = P.requirePermission('inventory.manage_items');
@@ -42,7 +45,7 @@ const sendError = (res, err) => isDup(err)
   ? res.status(409).json({ error: dupMessage(err), code: 'DUPLICATE_IDENTIFIER' })
   : err instanceof StockError
   ? res.status(err.status).json({ error: err.message, code: err.code, ...err.details })
-  : res.status(500).json({ error: err.message });
+  : handleError(res, err, 'inventory');
 
 // Cost is shown only to roles with "see costs": the cost column is blanked server-side, not just hidden on screen.
 const seesCost = req => P.has(req.user, 'inventory.view_cost');
@@ -195,7 +198,7 @@ router.post('/', canManage, async (req, res) => {
     const {
       brand, model, size, type, stock, cost_price, sale_price, reorder_level,
       pattern, load_index, speed_index, dot,
-    } = req.body;
+    } = validate(req.body, S.ITEM_BODY);
     const mf = masterFields(req.body);
     const tyre = await requiresSpec(orgId);
     if (tyre ? (!brand || !model || !size) : !String(model || '').trim()) return res.status(400).json({ error: missingFieldsMessage(tyre) });
@@ -281,7 +284,7 @@ router.put('/:id', canManage, async (req, res) => {
     const {
       brand, model, size, type, stock, cost_price, sale_price, reorder_level,
       pattern, load_index, speed_index, dot,
-    } = req.body;
+    } = validate(req.body, S.ITEM_BODY);
     const mf = masterFields(req.body);
     const tyre = await requiresSpec(orgId);
     if (tyre ? (!brand || !model || !size) : !String(model || '').trim()) return res.status(400).json({ error: missingFieldsMessage(tyre) });
@@ -296,7 +299,7 @@ router.put('/:id', canManage, async (req, res) => {
         .input('id', sql.Int, req.params.id).input('orgId', sql.Int, orgId).input('branchId', sql.Int, branchId)
         .query('SELECT * FROM tires WITH (UPDLOCK) WHERE id = @id AND organization_id = @orgId AND branch_id = @branchId');
       beforeRow = beforeRes.recordset[0] || null;
-      if (!beforeRow) { await tx.rollback(); return res.json(undefined); }
+      if (!beforeRow) { await tx.rollback(); return res.status(404).json({ error: 'Inventory item not found' }); }
 
       // Stock is NOT written here. A changed quantity becomes a logged adjustment (pending approval where required).
       const requested = stock === undefined || stock === null || stock === '' ? beforeRow.stock : Number(stock);
